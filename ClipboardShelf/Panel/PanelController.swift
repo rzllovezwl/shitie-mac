@@ -17,6 +17,7 @@ final class PanelController {
     private(set) var previousApplication: NSRunningApplication?
     private var lastExternalApplication: NSRunningApplication?
     private var targetFrame: NSRect = .zero
+    private var displayFrame: NSRect = .zero
     private var outsideClickMonitor: Any?
     private var activationObserver: Any?
 
@@ -73,19 +74,12 @@ final class PanelController {
             : (NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? primaryScreen)
         guard let screen else { return }
         let bounds = screen.frame
-        let preferredHeight: CGFloat
-        switch UserDefaults.standard.string(forKey: "panelHeight") {
-        case "compact": preferredHeight = 300
-        case "large": preferredHeight = min(520, max(380, bounds.height * 0.52))
-        default: preferredHeight = min(380, max(300, bounds.height * 0.38))
-        }
-        let height = min(preferredHeight, bounds.height - 20)
-        targetFrame = NSRect(
-            x: bounds.minX + 10,
-            y: bounds.minY + 10,
-            width: bounds.width - 20,
-            height: height
+        displayFrame = bounds
+        targetFrame = PanelLayout.frame(
+            in: bounds,
+            heightPreference: UserDefaults.standard.string(forKey: "panelHeight")
         )
+        let height = targetFrame.height
         let startFrame = targetFrame.offsetBy(dx: 0, dy: -height - 20)
         panel.setFrame(startFrame, display: false)
         panel.orderFrontRegardless()
@@ -107,6 +101,21 @@ final class PanelController {
             context.duration = 0.24
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             panel.animator().setFrame(targetFrame, display: true)
+        }
+    }
+
+    func updateHeightIfVisible(_ preference: String) {
+        guard panel.isVisible else { return }
+        let bounds = panel.screen?.frame ?? displayFrame
+        guard !bounds.isEmpty else { return }
+        displayFrame = bounds
+        let nextFrame = PanelLayout.frame(in: bounds, heightPreference: preference)
+        guard nextFrame != targetFrame else { return }
+        targetFrame = nextFrame
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrame(nextFrame, display: true)
         }
     }
 

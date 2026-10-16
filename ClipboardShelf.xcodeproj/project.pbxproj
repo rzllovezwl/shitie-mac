@@ -23,6 +23,7 @@
 		BAC15D26C999BE89C8C5DC8F /* CopyChime.wav in Resources */ = {isa = PBXBuildFile; fileRef = 51B2FFEDA1E2ED4AC32AF7E0 /* CopyChime.wav */; };
 		CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D280CEAD9C2985B8DCFAB589 /* PanelController.swift */; };
 		DC731719994872039F8E425A /* ClipboardCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD5D6C992EBAEE1C2806A7D /* ClipboardCardView.swift */; };
+		E8176DC9BF1B796ADA9A96E9 /* PanelLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 584E705C84F1D02F57B7B960 /* PanelLayout.swift */; };
 		EC9748908A0952DB6C2867FC /* PrivacyPolicy.md in Resources */ = {isa = PBXBuildFile; fileRef = FE8818F0D926D8A44F49A355 /* PrivacyPolicy.md */; };
 		EFE77BE7FFC3A1CC54C4AE1B /* ClipboardEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E47A8098430A812F94FEE50B /* ClipboardEntry.swift */; };
 		F699B8CDFACF0C926C3C88D6 /* ClipboardHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C828A5BAE370732FA71922F /* ClipboardHistoryStore.swift */; };
@@ -35,6 +36,7 @@
 		51B2FFEDA1E2ED4AC32AF7E0 /* CopyChime.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = CopyChime.wav; sourceTree = "<group>"; };
 		55AE5F5F250F0A3D2FAB6165 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		56C9A66C2498C64C934E686D /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
+		584E705C84F1D02F57B7B960 /* PanelLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelLayout.swift; sourceTree = "<group>"; };
 		6C828A5BAE370732FA71922F /* ClipboardHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryStore.swift; sourceTree = "<group>"; };
 		6CD5D6C992EBAEE1C2806A7D /* ClipboardCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardCardView.swift; sourceTree = "<group>"; };
 		760009205A79787AC7F119AC /* CopySoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopySoundPlayer.swift; sourceTree = "<group>"; };
@@ -90,6 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				D280CEAD9C2985B8DCFAB589 /* PanelController.swift */,
+				584E705C84F1D02F57B7B960 /* PanelLayout.swift */,
 			);
 			path = Panel;
 			sourceTree = "<group>";
@@ -237,6 +240,7 @@
 				906B4328EE2F473A4B8CED47 /* GlobalHotKey.swift in Sources */,
 				F6A471FC3B241565F00E9642 /* MenuBarContent.swift in Sources */,
 				CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */,
+				E8176DC9BF1B796ADA9A96E9 /* PanelLayout.swift in Sources */,
 				28E5C1316ED5E87085E32E7E /* PasteService.swift in Sources */,
 				47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */,
 				2D9B09C60AD837B3DB2C3600 /* SettingsView.swift in Sources */,

@@ -52,7 +52,7 @@ struct SettingsView: View {
                     Text("标准").tag("standard")
                     Text("宽敞").tag("large")
                 }
-                Text("面板设置在下次打开时生效。")
+                Text("面板高度立即生效；显示屏幕在下次打开面板时生效。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -88,6 +88,9 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 520, minHeight: 480)
+        .onChange(of: panelHeight) { _, newValue in
+            model.updatePanelHeight(newValue)
+        }
         .sheet(isPresented: $showsPrivacyPolicy) {
             PrivacyPolicyView()
         }

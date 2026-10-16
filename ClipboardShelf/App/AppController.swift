@@ -67,6 +67,10 @@ final class AppController: ObservableObject {
         panel.hide()
     }
 
+    func updatePanelHeight(_ preference: String) {
+        panel.updateHeightIfVisible(preference)
+    }
+
     func copy(_ entry: ClipboardEntry) {
         guard writeToPasteboard(entry) else {
             statusMessage = "复制失败，原始内容可能已不可用。"
