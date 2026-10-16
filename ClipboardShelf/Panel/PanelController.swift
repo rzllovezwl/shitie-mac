@@ -18,6 +18,7 @@ final class PanelController {
     private var lastExternalApplication: NSRunningApplication?
     private var targetFrame: NSRect = .zero
     private var displayFrame: NSRect = .zero
+    private var currentPlacement: PanelPlacement = .bottom
     private var outsideClickMonitor: Any?
     private var settingsClickMonitor: Any?
     private var activationObserver: Any?
@@ -77,12 +78,15 @@ final class PanelController {
         guard let screen else { return }
         let bounds = screen.frame
         displayFrame = bounds
+        currentPlacement = PanelPlacement(
+            rawValue: UserDefaults.standard.string(forKey: "panelPlacement") ?? "bottom"
+        ) ?? .bottom
         targetFrame = PanelLayout.frame(
             in: bounds,
+            placement: currentPlacement,
             heightPreference: UserDefaults.standard.string(forKey: "panelHeight")
         )
-        let height = targetFrame.height
-        let startFrame = targetFrame.offsetBy(dx: 0, dy: -height - 20)
+        let startFrame = PanelLayout.offscreenFrame(from: targetFrame, placement: currentPlacement)
         panel.setFrame(startFrame, display: false)
         panel.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
@@ -120,13 +124,21 @@ final class PanelController {
         }
     }
 
-    func updateHeightIfVisible(_ preference: String) {
+    func updateLayoutIfVisible() {
         guard panel.isVisible else { return }
         let bounds = panel.screen?.frame ?? displayFrame
         guard !bounds.isEmpty else { return }
         displayFrame = bounds
-        let nextFrame = PanelLayout.frame(in: bounds, heightPreference: preference)
+        let placement = PanelPlacement(
+            rawValue: UserDefaults.standard.string(forKey: "panelPlacement") ?? "bottom"
+        ) ?? .bottom
+        let nextFrame = PanelLayout.frame(
+            in: bounds,
+            placement: placement,
+            heightPreference: UserDefaults.standard.string(forKey: "panelHeight")
+        )
         guard nextFrame != targetFrame else { return }
+        currentPlacement = placement
         targetFrame = nextFrame
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
@@ -148,7 +160,7 @@ final class PanelController {
             completion?()
             return
         }
-        let endFrame = targetFrame.offsetBy(dx: 0, dy: -targetFrame.height - 20)
+        let endFrame = PanelLayout.offscreenFrame(from: targetFrame, placement: currentPlacement)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)

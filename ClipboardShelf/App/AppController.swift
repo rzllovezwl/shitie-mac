@@ -21,6 +21,7 @@ final class AppController: ObservableObject {
     private lazy var panel = PanelController(model: self)
     private var timer: Timer?
     private var lastHotKeyAttempt = Date.distantPast
+    private var lastHistoryCleanup = Date.distantPast
     private var clipboardChanges: ClipboardChangeTracker
     private var started = false
 
@@ -49,6 +50,7 @@ final class AppController: ObservableObject {
             MainActor.assumeIsolated {
                 self?.retryHotKeyIfNeeded()
                 self?.refreshPastePermission()
+                self?.cleanHistoryIfNeeded()
                 self?.pollPasteboard()
             }
         }
@@ -67,8 +69,18 @@ final class AppController: ObservableObject {
         panel.hide()
     }
 
-    func updatePanelHeight(_ preference: String) {
-        panel.updateHeightIfVisible(preference)
+    func updatePanelLayout() {
+        panel.updateLayoutIfVisible()
+    }
+
+    func applyHistoryStorageSettings() {
+        do {
+            if try store.applyStoragePolicy() {
+                entries = store.entries
+            }
+        } catch {
+            statusMessage = "清理历史记录失败：\(error.localizedDescription)"
+        }
     }
 
     func copy(_ entry: ClipboardEntry) {
@@ -173,6 +185,12 @@ final class AppController: ObservableObject {
                 statusMessage = nil
             }
         }
+    }
+
+    private func cleanHistoryIfNeeded() {
+        guard Date().timeIntervalSince(lastHistoryCleanup) >= 300 else { return }
+        lastHistoryCleanup = .now
+        applyHistoryStorageSettings()
     }
 
     private func pollPasteboard() {

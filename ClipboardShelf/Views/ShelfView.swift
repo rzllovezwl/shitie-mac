@@ -9,6 +9,7 @@ struct ShelfView: View {
     }
 
     @ObservedObject var model: AppController
+    @AppStorage("panelPlacement") private var panelPlacement = "bottom"
     @State private var searchText = ""
     @State private var selectedID: UUID?
     @State private var detailID: UUID?
@@ -31,18 +32,22 @@ struct ShelfView: View {
         filteredEntries.first(where: { $0.id == detailID })
     }
 
+    private var isVertical: Bool {
+        (PanelPlacement(rawValue: panelPlacement) ?? .bottom).isVertical
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                VStack(spacing: 16) {
+                VStack(spacing: isVertical ? 10 : 16) {
                     header
                     historyStrip
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     footer
                 }
-                .padding(.horizontal, 22)
-                .padding(.top, 18)
-                .padding(.bottom, 16)
+                .padding(.horizontal, isVertical ? 16 : 22)
+                .padding(.top, isVertical ? 16 : 18)
+                .padding(.bottom, isVertical ? 14 : 16)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .glassEffect(.regular, in: .rect(cornerRadius: 28))
                 .overlay {
@@ -64,7 +69,7 @@ struct ShelfView: View {
                         onClose: { closeDetail() }
                     )
                     .frame(
-                        width: min(640, geometry.size.width - 48),
+                        width: min(640, geometry.size.width - (isVertical ? 20 : 48)),
                         height: min(440, geometry.size.height - 24)
                     )
                     .glassEffect(.regular, in: .rect(cornerRadius: 22))
@@ -73,7 +78,7 @@ struct ShelfView: View {
                     .focusable()
                     .focused($focusedTarget, equals: .detail)
                     .focusEffectDisabled()
-                    .onKeyPress(keys: [.space, .leftArrow, .rightArrow], action: handleKeyPress)
+                    .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow], action: handleKeyPress)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -106,28 +111,55 @@ struct ShelfView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 14) {
+        Group {
+            if isVertical {
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        titleAndCount
+                        Spacer(minLength: 0)
+                        headerActions
+                    }
+                    searchField
+                }
+            } else {
+                HStack(spacing: 14) {
+                    searchField
+                        .frame(width: 210)
+                    Spacer()
+                    titleAndCount
+                    Spacer()
+                    headerActions
+                }
+            }
+        }
+        .font(.system(size: 15))
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
             TextField("搜索历史", text: $searchText)
                 .textFieldStyle(.plain)
-                .frame(width: 190)
                 .focused($focusedTarget, equals: .search)
+        }
+    }
 
-            Spacer()
-
+    private var titleAndCount: some View {
+        HStack(spacing: 8) {
             Label("剪贴板", systemImage: "clock.arrow.circlepath")
                 .font(.system(size: 13, weight: .semibold))
-                .padding(.horizontal, 12)
+                .padding(.horizontal, isVertical ? 8 : 12)
                 .padding(.vertical, 7)
                 .background(.primary.opacity(0.07), in: Capsule())
-
             Text("\(filteredEntries.count)")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(.secondary)
+        }
+    }
 
-            Spacer()
-
+    private var headerActions: some View {
+        HStack(spacing: 8) {
             Menu {
                 Toggle("暂停记录", isOn: $model.isPaused)
                 Button("清空历史记录…", role: .destructive) {
@@ -161,7 +193,6 @@ struct ShelfView: View {
             .accessibilityLabel("收起面板")
             .keyboardShortcut(.escape, modifiers: [])
         }
-        .font(.system(size: 15))
     }
 
     private var historyStrip: some View {
@@ -175,32 +206,34 @@ struct ShelfView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { stripGeometry in
-                    let cardHeight = max(1, stripGeometry.size.height - 8)
-                    let cardWidth = min(340, max(128, cardHeight * 190 / 252))
+                    let cardSize = PanelLayout.cardSize(
+                        in: stripGeometry.size,
+                        placement: PanelPlacement(rawValue: panelPlacement) ?? .bottom
+                    )
 
                     ScrollViewReader { scrollProxy in
-                        ScrollView(.horizontal) {
-                            LazyHStack(alignment: .top, spacing: 12) {
-                                ForEach(filteredEntries) { entry in
-                                    ClipboardCardView(
-                                        entry: entry,
-                                        imageURL: model.imageURL(for: entry),
-                                        cardSize: CGSize(width: cardWidth, height: cardHeight),
-                                        isSelected: selectedID == entry.id,
-                                        onSelect: { select(entry) },
-                                        onPaste: { model.paste(entry) },
-                                        onCopy: { model.copy(entry) }
-                                    )
+                        ScrollView(isVertical ? .vertical : .horizontal) {
+                            Group {
+                                if isVertical {
+                                    LazyVStack(spacing: 12) {
+                                        cardList(cardSize: cardSize)
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                } else {
+                                    LazyHStack(alignment: .top, spacing: 12) {
+                                        cardList(cardSize: cardSize)
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 2)
                                 }
                             }
-                            .padding(.vertical, 4)
-                            .padding(.horizontal, 2)
                         }
                         .scrollIndicators(.hidden)
                         .focusable()
                         .focused($focusedTarget, equals: .history)
                         .focusEffectDisabled()
-                        .onKeyPress(keys: [.space, .leftArrow, .rightArrow], action: handleKeyPress)
+                        .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow], action: handleKeyPress)
                         .onChange(of: selectedID) { _, newID in
                             guard let newID else { return }
                             withAnimation(.easeOut(duration: 0.16)) {
@@ -223,13 +256,31 @@ struct ShelfView: View {
         }
     }
 
+    private func cardList(cardSize: CGSize) -> some View {
+        ForEach(filteredEntries) { entry in
+            ClipboardCardView(
+                entry: entry,
+                imageURL: model.imageURL(for: entry),
+                cardSize: cardSize,
+                isSelected: selectedID == entry.id,
+                onSelect: { select(entry) },
+                onPaste: { model.paste(entry) },
+                onCopy: { model.copy(entry) }
+            )
+        }
+    }
+
     private var footer: some View {
         HStack(spacing: 8) {
             Circle()
                 .fill(model.isPaused ? Color.orange : Color.green)
                 .frame(width: 6, height: 6)
-            Text(model.statusMessage ?? (model.isPaused ? "已暂停记录" : "单击选中 · 空格查看详情 · ← → 切换 · 双击粘贴 · 右键复制"))
-                .lineLimit(1)
+            Text(model.statusMessage ?? (model.isPaused
+                ? "已暂停记录"
+                : isVertical
+                    ? "空格详情 · 方向键切换 · 双击粘贴"
+                    : "单击选中 · 空格查看详情 · ← → 切换 · 双击粘贴 · 右键复制"))
+                .lineLimit(isVertical ? 2 : 1)
             Spacer()
             Text("⌘⇧V")
                 .fontWeight(.medium)
@@ -272,6 +323,12 @@ struct ShelfView: View {
             moveSelection(by: -1)
             return .handled
         case .rightArrow:
+            moveSelection(by: 1)
+            return .handled
+        case .upArrow where isVertical:
+            moveSelection(by: -1)
+            return .handled
+        case .downArrow where isVertical:
             moveSelection(by: 1)
             return .handled
         default:

@@ -56,6 +56,7 @@ targets:
       configs:
         Debug:
           CONFIGURATION_BUILD_DIR: "$(PROJECT_DIR)/build"
+          ENABLE_DEBUG_DYLIB: NO
           PRODUCT_NAME: ClipHoook测试版
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie.dev
           APP_DISPLAY_NAME: ClipHoook测试版
