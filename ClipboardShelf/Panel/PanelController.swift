@@ -19,6 +19,7 @@ final class PanelController {
     private var targetFrame: NSRect = .zero
     private var displayFrame: NSRect = .zero
     private var outsideClickMonitor: Any?
+    private var settingsClickMonitor: Any?
     private var activationObserver: Any?
 
     var isVisible: Bool { panel.isVisible }
@@ -58,6 +59,7 @@ final class PanelController {
     }
 
     func show() {
+        let shouldKeepSettingsBehind = !NSApp.isActive
         let frontmost = NSWorkspace.shared.frontmostApplication
         if frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier {
             previousApplication = lastExternalApplication
@@ -85,17 +87,31 @@ final class PanelController {
         panel.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+        if shouldKeepSettingsBehind {
+            SettingsWindowController.shared.orderBehindOtherApps()
+        }
         // Activating a regular app with Settings open can restore Settings as
-        // the key window on the next run loop. Give the shortcut panel focus
-        // after AppKit finishes activation, without moving Settings.
+        // the key window on the next run loop. Restore only the shelf to the
+        // foreground after AppKit finishes activation.
         DispatchQueue.main.async { [weak panel] in
             guard let panel, panel.isVisible, NSApp.isActive else { return }
             panel.makeKeyAndOrderFront(nil)
+            if shouldKeepSettingsBehind {
+                SettingsWindowController.shared.orderBehindOtherApps()
+            }
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
                 self?.hide()
             }
+        }
+        settingsClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            MainActor.assumeIsolated {
+                guard let self, self.panel.isVisible,
+                      SettingsWindowController.shared.contains(event.window) else { return }
+                self.hide()
+            }
+            return event
         }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.24
@@ -123,6 +139,10 @@ final class PanelController {
         if let outsideClickMonitor {
             NSEvent.removeMonitor(outsideClickMonitor)
             self.outsideClickMonitor = nil
+        }
+        if let settingsClickMonitor {
+            NSEvent.removeMonitor(settingsClickMonitor)
+            self.settingsClickMonitor = nil
         }
         guard panel.isVisible else {
             completion?()

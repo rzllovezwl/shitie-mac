@@ -136,7 +136,6 @@ struct ShelfView: View {
                 .disabled(model.entries.isEmpty)
                 Divider()
                 Button("设置…", systemImage: "gearshape") {
-                    model.closePanel()
                     model.openSettings()
                 }
             } label: {
