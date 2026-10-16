@@ -13,6 +13,7 @@
 - 菜单栏可暂停记录及清空本机历史；面板右上角“…”菜单可打开设置。缺少双击粘贴所需的键盘事件权限时，可点“打开键盘事件权限设置…”直达系统设置。
 - 已配置参考图风格的 macOS 应用图标。启动后 Dock 显示图标，点击可打开设置；关闭设置窗口后应用继续留在菜单栏，Dock 图标收起。可从菜单栏“设置…”再次打开。
 - 设置中可控制是否继续记录、复制提示音、面板出现的屏幕与高度，并查看历史记录数量、清空历史或打开权限设置。
+- 设置的“版本记录”列出各构建的更新内容，并标记当前版本；测试版已推进到 `1.0.0 (5)`，已提审的 `1.0.0 (4)` 安装包保持原样。
 
 ## 构建与运行
 
@@ -26,9 +27,11 @@ Debug 和 Release 是本地功能构建，不启用 App Sandbox。第一次双�
 
 复制提示音保存在 `ClipboardShelf/Resources/CopyChime.wav`，可用 `python3 Tools/GenerateCopyChime.py` 重新生成。相关变更状态测试可用 `swiftc -module-cache-path /tmp/ClipHoookSwiftModuleCache ClipboardShelf/Services/ClipboardChangeTracker.swift Tests/ClipboardChangeTrackerSmoke.swift -o /tmp/ClipboardChangeTrackerSmoke` 编译，再运行 `/tmp/ClipboardChangeTrackerSmoke`。
 
+每次准备新的测试构建或上架更新时，先递增 `ClipboardShelf/Info.plist` 的构建号；如是新商店版本，再更新版本号。随后在 `ClipboardShelf/Resources/ReleaseHistory.json` 的最前面添加该版本的日期、标题和用户可见的变更。Xcode 构建会运行 `Tools/ValidateReleaseHistory.py`，缺少当前版本记录或更新说明时直接失败；设置中的“版本记录”会展示这份随应用打包的内容。
+
 如果其他应用正在使用 `⌘⇧V`，面板仍可从菜单栏打开。本应用每 5 秒重试注册；退出占用快捷键的应用后，无需重启本应用。
 
-`AppStore` 配置启用了 App Sandbox。测试版与商店版均在获得系统键盘事件授权后支持双击自动粘贴；未授权时双击会复制并收起面板，仍可手动按 `⌘V`。商店版已编译和签名，提交前仍须安装并实测正式 Bundle ID 的授权与跨应用粘贴。详见 [上架说明](docs/AppStore.md)。
+`AppStore` 配置启用了 App Sandbox。测试版与商店版均在获得系统键盘事件授权后支持双击自动粘贴；未授权时双击会复制并收起面板，仍可手动按 `⌘V`。构建号 `4` 的商店版已由用户反馈提审；后续新构建发布前仍须安装并实测正式 Bundle ID 的授权与跨应用粘贴。详见 [上架说明](docs/AppStore.md)。
 
 ## Git 分支
 

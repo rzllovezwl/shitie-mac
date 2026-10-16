@@ -7,6 +7,8 @@
 
 每项改动从 `develop` 建短期分支，提交代码、XcodeGen 的 `project.yml` 与生成的 `.xcodeproj`。`build/`、`dist/`、归档、证书与配置文件受 `.gitignore` 排除。仓库应设为 GitHub 私有仓库，并开启双重认证。不要把用户剪贴板历史、钥匙串、签名私钥或 App Store Connect API Key 提交进去。
 
+每次准备更新都要递增 `ClipboardShelf/Info.plist` 的构建号，并在 `ClipboardShelf/Resources/ReleaseHistory.json` 顶部写明本次用户可见的功能或修复。Xcode 构建阶段会校验当前版本与记录一致；设置窗口中的“版本记录”直接读取打包后的同一份文件。提审前核对商店更新说明与应用内记录一致。
+
 GitHub 私有仓库：[rzllovezwl/shitie-mac](https://github.com/rzllovezwl/shitie-mac)。本地使用 SSH 远端：
 
 ```sh

@@ -42,6 +42,16 @@ targets:
         excludes:
           - Info.plist
           - Entitlements/**
+    preBuildScripts:
+      - name: 校验应用内版本记录
+        script: |
+          /usr/bin/python3 "$SRCROOT/Tools/ValidateReleaseHistory.py" "$SRCROOT/ClipboardShelf/Info.plist" "$SRCROOT/ClipboardShelf/Resources/ReleaseHistory.json"
+        basedOnDependencyAnalysis: false
+        showEnvVars: false
+        inputFiles:
+          - $(SRCROOT)/Tools/ValidateReleaseHistory.py
+          - $(SRCROOT)/ClipboardShelf/Info.plist
+          - $(SRCROOT)/ClipboardShelf/Resources/ReleaseHistory.json
     settings:
       configs:
         Debug:

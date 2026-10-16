@@ -14,7 +14,9 @@ App Store 页面名称与 Mac 桌面上显示的应用名称可以不同。正�
 
 2026-10-16 已在开发团队 `526XL62KAS` 注册正式 Explicit App ID `com.renzhenglin.shitie`，创建 Apple Distribution 和 Mac Installer Distribution 签名身份，并生成「拾贴 Mac App Store 1.0」配置文件。品牌改名不更换 Bundle ID 或配置文件。App Store Connect 已创建 macOS App 记录 `6823468334`；用户将自行把该记录的中文展示名改为「ClipHoook-你的⌘C⌘V伴侣」，本地改名不会自动修改商店后台。
 
-`AppStore` 配置启用 App Sandbox。2026-10-16 已在本机导出 `dist/ClipHoook-1.0.0-build4-AppStore.pkg`，安装器证书链和包内应用的 Apple Distribution 签名、正式 Bundle ID、沙盒 entitlement、`x86_64`/`arm64` 架构及随包隐私政策均已本机核验。`dist/` 被 Git 忽略，此包尚未上传或提交审核，商店沙盒版的跨应用自动粘贴尚未在真实桌面完成验证。旧 `dist/拾贴-1.0.0-AppStore.pkg` 为构建号 1，不含自动粘贴实现；构建号 2 使用旧品牌名，构建号 3 尚未包含本次窗口焦点修复。
+`AppStore` 配置启用 App Sandbox。2026-10-16 已在本机导出 `dist/ClipHoook-1.0.0-build4-AppStore.pkg`，安装器证书链和包内应用的 Apple Distribution 签名、正式 Bundle ID、沙盒 entitlement、`x86_64`/`arm64` 架构及随包隐私政策均已本机核验。`dist/` 被 Git 忽略。用户反馈构建号 `4` 已提交审核；本机尚未核对 App Store Connect 的实时审核状态，商店沙盒版的跨应用自动粘贴也尚未在真实桌面完成验证。旧 `dist/拾贴-1.0.0-AppStore.pkg` 为构建号 1，不含自动粘贴实现；构建号 2 使用旧品牌名，构建号 3 尚未包含本次窗口焦点修复。
+
+`develop` 已将构建号推进到 `5`，用于后续测试迭代和应用内版本记录。该源码状态尚未生成新的上架包；上方提到的构建号 `4` 安装包及其审核状态不受影响。
 
 App Store Connect 曾提示《Apple Developer Program 许可协议》已更新；提交前由账户持有人检查并在需要时亲自接受。
 
@@ -40,7 +42,7 @@ Xcode 工程之前使用 `com.example.ClipboardShelf`，而正式 `com.renzhengl
 2. 保持 App Store Connect 的版本号与包内 `CFBundleShortVersionString` 一致。两者现均为 `1.0.0`，最新包内构建号为 `4`；上传前再次核对。
 3. 在解锁的真实 Mac 上安装构建号 `4`，验证剪贴板读取授权、键盘事件授权、快捷键、历史持久化、Dock 覆盖、面板交互和跨应用粘贴；未授权时还应能复制并收起面板。
 4. 由账户持有人检查开发者协议。使用 [商店素材](../distribution/metadata/zh-Hans/README.md) 填写文案并上传截图；把隐私政策和支持页发布到公开网址后，再填写 Privacy Policy URL、Support URL、App Privacy、年龄分级、定价和销售范围、审核联系信息。
-5. 完成上述检查后再上传构建并提交审核。当前包只是签名导出的候选包，不代表已通过 Apple 验证或真实交互测试。
+5. 后续新构建完成上述检查后再上传并提交审核。构建号 `4` 已由用户反馈提审，是否通过审核以 App Store Connect 为准。
 
 可在锁屏期间做编译、归档、静态检查和本地数据测试。快捷键、窗口层级、触控板捏合、跨应用粘贴与系统权限弹窗必须在解锁的真实桌面验证。
 

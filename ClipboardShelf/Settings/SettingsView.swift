@@ -7,6 +7,12 @@ struct SettingsView: View {
     @AppStorage("panelHeight") private var panelHeight = "standard"
     @AppStorage(CopySoundPreference.enabledKey) private var copySoundEnabled = true
     @State private var showsPrivacyPolicy = false
+    @State private var showsReleaseHistory = false
+
+    private var currentVersion: String {
+        let version = ReleaseHistory.currentVersion()
+        return "\(version.version)（\(version.build)）"
+    }
 
     private var historySize: String {
         let bytes = model.entries.reduce(0) { $0 + $1.byteCount }
@@ -89,6 +95,10 @@ struct SettingsView: View {
             }
 
             Section("关于与隐私") {
+                LabeledContent("当前版本", value: currentVersion)
+                Button("版本记录…", systemImage: "clock.arrow.circlepath") {
+                    showsReleaseHistory = true
+                }
                 Button("隐私政策…", systemImage: "hand.raised") {
                     showsPrivacyPolicy = true
                 }
@@ -104,6 +114,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showsPrivacyPolicy) {
             PrivacyPolicyView()
+        }
+        .sheet(isPresented: $showsReleaseHistory) {
+            ReleaseHistoryView()
         }
     }
 }
