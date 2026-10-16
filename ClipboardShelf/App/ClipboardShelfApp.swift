@@ -38,7 +38,7 @@ struct ClipboardShelfApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("拾贴", systemImage: "doc.on.clipboard") {
+        MenuBarExtra("ClipHoook", systemImage: "doc.on.clipboard") {
             MenuBarContent(model: AppController.shared)
         }
         .menuBarExtraStyle(.menu)

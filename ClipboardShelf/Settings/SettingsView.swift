@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject var model: AppController
     @AppStorage("panelDisplayScreen") private var panelDisplayScreen = "mouse"
     @AppStorage("panelHeight") private var panelHeight = "standard"
+    @State private var showsPrivacyPolicy = false
 
     private var historySize: String {
         let bytes = model.entries.reduce(0) { $0 + $1.byteCount }
@@ -15,7 +16,6 @@ struct SettingsView: View {
         switch PasteService.availability(requestPermission: false) {
         case .ready: "已允许"
         case .needsPermission: "需要授权"
-        case .appStoreBuild: "复制后手动按 ⌘V"
         }
     }
 
@@ -26,7 +26,7 @@ struct SettingsView: View {
                     get: { !model.isPaused },
                     set: { model.isPaused = !$0 }
                 ))
-                Text("关闭设置窗口后，拾贴仍会在菜单栏运行。")
+                Text("关闭设置窗口后，ClipHoook 仍会在菜单栏运行。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -57,15 +57,28 @@ struct SettingsView: View {
 
             Section("快捷键与权限") {
                 LabeledContent("打开面板", value: "⌘⇧V")
-                LabeledContent("自动粘贴", value: pastePermissionStatus)
-                #if !APP_STORE
+                LabeledContent("双击自动粘贴", value: pastePermissionStatus)
                 Button("打开键盘事件权限设置…", systemImage: "gearshape") {
                     model.openPastePermissionSettings()
                 }
-                #endif
+                Text("授权后，双击记录会收起面板并向原应用发送 ⌘V。未授权时仍可复制后手动粘贴。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("关于与隐私") {
+                Button("隐私政策…", systemImage: "hand.raised") {
+                    showsPrivacyPolicy = true
+                }
+                Text("联系开发者：584772541@qq.com")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .frame(minWidth: 520, minHeight: 480)
+        .sheet(isPresented: $showsPrivacyPolicy) {
+            PrivacyPolicyView()
+        }
     }
 }

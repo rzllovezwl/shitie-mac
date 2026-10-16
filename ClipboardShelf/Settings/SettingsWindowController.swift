@@ -23,7 +23,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "拾贴设置"
+            window.title = "ClipHoook 设置"
             window.minSize = NSSize(width: 520, height: 480)
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(rootView: SettingsView(model: AppController.shared))

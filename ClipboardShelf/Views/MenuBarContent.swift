@@ -42,7 +42,7 @@ struct MenuBarContent: View {
             Text("⌘⇧V 打开或收起")
         }
 
-        Button("退出拾贴") {
+        Button("退出 ClipHoook") {
             NSApp.terminate(nil)
         }
     }

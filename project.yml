@@ -17,7 +17,7 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     DEVELOPMENT_TEAM: 526XL62KAS
 schemes:
-  拾贴测试版:
+  ClipHoook测试版:
     build:
       targets:
         ClipboardShelf: all
@@ -25,7 +25,7 @@ schemes:
       config: Debug
     archive:
       config: Debug
-  拾贴上架版:
+  ClipHoook上架版:
     build:
       targets:
         ClipboardShelf: all
@@ -46,17 +46,17 @@ targets:
       configs:
         Debug:
           CONFIGURATION_BUILD_DIR: "$(PROJECT_DIR)/build"
-          PRODUCT_NAME: 拾贴测试版
+          PRODUCT_NAME: ClipHoook测试版
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie.dev
-          APP_DISPLAY_NAME: 拾贴测试版
+          APP_DISPLAY_NAME: ClipHoook测试版
           CODE_SIGN_IDENTITY: "Apple Development"
         Release:
-          PRODUCT_NAME: 拾贴测试版
+          PRODUCT_NAME: ClipHoook测试版
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie.dev
-          APP_DISPLAY_NAME: 拾贴测试版
+          APP_DISPLAY_NAME: ClipHoook测试版
         AppStore:
-          PRODUCT_NAME: 拾贴
+          PRODUCT_NAME: ClipHoook
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie
-          APP_DISPLAY_NAME: 拾贴
+          APP_DISPLAY_NAME: ClipHoook
           CODE_SIGN_ENTITLEMENTS: ClipboardShelf/Entitlements/AppStore.entitlements
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: APP_STORE

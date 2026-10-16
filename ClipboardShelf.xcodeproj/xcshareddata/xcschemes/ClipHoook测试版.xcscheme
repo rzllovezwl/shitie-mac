@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "576C68C9870D83A49BF08A3E"
-               BuildableName = "&#x62fe;&#x8d34;.app"
+               BuildableName = "ClipHoook.app"
                BlueprintName = "ClipboardShelf"
                ReferencedContainer = "container:ClipboardShelf.xcodeproj">
             </BuildableReference>
@@ -31,7 +31,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "576C68C9870D83A49BF08A3E"
-            BuildableName = "&#x62fe;&#x8d34;.app"
+            BuildableName = "ClipHoook.app"
             BlueprintName = "ClipboardShelf"
             ReferencedContainer = "container:ClipboardShelf.xcodeproj">
          </BuildableReference>
@@ -54,7 +54,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "576C68C9870D83A49BF08A3E"
-            BuildableName = "&#x62fe;&#x8d34;.app"
+            BuildableName = "ClipHoook.app"
             BlueprintName = "ClipboardShelf"
             ReferencedContainer = "container:ClipboardShelf.xcodeproj">
          </BuildableReference>
@@ -71,7 +71,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "576C68C9870D83A49BF08A3E"
-            BuildableName = "&#x62fe;&#x8d34;.app"
+            BuildableName = "ClipHoook.app"
             BlueprintName = "ClipboardShelf"
             ReferencedContainer = "container:ClipboardShelf.xcodeproj">
          </BuildableReference>

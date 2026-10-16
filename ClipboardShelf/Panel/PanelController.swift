@@ -34,6 +34,7 @@ final class PanelController {
         panel.isOpaque = false
         panel.hasShadow = false
         panel.level = .statusBar
+        panel.becomesKeyOnlyIfNeeded = false
         panel.hidesOnDeactivate = false
         panel.isMovable = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
@@ -87,9 +88,16 @@ final class PanelController {
         )
         let startFrame = targetFrame.offsetBy(dx: 0, dy: -height - 20)
         panel.setFrame(startFrame, display: false)
-        NSApp.activate(ignoringOtherApps: true)
         panel.orderFrontRegardless()
-        panel.makeKey()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        // Activating a regular app with Settings open can restore Settings as
+        // the key window on the next run loop. Give the shortcut panel focus
+        // after AppKit finishes activation, without moving Settings.
+        DispatchQueue.main.async { [weak panel] in
+            guard let panel, panel.isVisible, NSApp.isActive else { return }
+            panel.makeKeyAndOrderFront(nil)
+        }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in
                 self?.hide()

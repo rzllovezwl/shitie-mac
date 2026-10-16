@@ -12,6 +12,7 @@
 		2D9B09C60AD837B3DB2C3600 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796832E4D868F352FF7442C9 /* SettingsView.swift */; };
 		3A83411B0E5197F07523717B /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B2E95C0834FCF0BCB676B3 /* AppController.swift */; };
 		4244695508B00CEB6CE5AD83 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9433378679025CEF820DCFEA /* ShelfView.swift */; };
+		47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F142413106E0A3D39B5E6919 /* PrivacyPolicyView.swift */; };
 		4ED679F04A56529BB4EEEDB5 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB1F3A30A32085B34D49E2B /* SettingsWindowController.swift */; };
 		50712D00425D21F1A7C518B0 /* ClipboardShelfApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9823B4446A289238B144650B /* ClipboardShelfApp.swift */; };
 		906B4328EE2F473A4B8CED47 /* GlobalHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E43410045EA257B0B5BEC4B /* GlobalHotKey.swift */; };
@@ -19,6 +20,7 @@
 		AEA54A16A471265CF458C696 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 55AE5F5F250F0A3D2FAB6165 /* Assets.xcassets */; };
 		CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D280CEAD9C2985B8DCFAB589 /* PanelController.swift */; };
 		DC731719994872039F8E425A /* ClipboardCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CD5D6C992EBAEE1C2806A7D /* ClipboardCardView.swift */; };
+		EC9748908A0952DB6C2867FC /* PrivacyPolicy.md in Resources */ = {isa = PBXBuildFile; fileRef = FE8818F0D926D8A44F49A355 /* PrivacyPolicy.md */; };
 		EFE77BE7FFC3A1CC54C4AE1B /* ClipboardEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E47A8098430A812F94FEE50B /* ClipboardEntry.swift */; };
 		F699B8CDFACF0C926C3C88D6 /* ClipboardHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C828A5BAE370732FA71922F /* ClipboardHistoryStore.swift */; };
 		F6A471FC3B241565F00E9642 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56C9A66C2498C64C934E686D /* MenuBarContent.swift */; };
@@ -41,6 +43,8 @@
 		D280CEAD9C2985B8DCFAB589 /* PanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelController.swift; sourceTree = "<group>"; };
 		D3A1B51754AFF0AB3B0A403C /* ClipboardDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardDetailView.swift; sourceTree = "<group>"; };
 		E47A8098430A812F94FEE50B /* ClipboardEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardEntry.swift; sourceTree = "<group>"; };
+		F142413106E0A3D39B5E6919 /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
+		FE8818F0D926D8A44F49A355 /* PrivacyPolicy.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = PrivacyPolicy.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -106,6 +110,7 @@
 				596FCF9AD364FC5A138BB0E9 /* App */,
 				38E58D3E61B44DCF0BC84824 /* Model */,
 				44E7AD264EDFB14E0FEA1127 /* Panel */,
+				952943E0261CF10A35B86DCE /* Resources */,
 				19B49384C7413DFF6F617964 /* Services */,
 				A58C3515447C531C739884A5 /* Settings */,
 				32BE05A0EEC49BE613BECFF4 /* Views */,
@@ -113,9 +118,18 @@
 			path = ClipboardShelf;
 			sourceTree = "<group>";
 		};
+		952943E0261CF10A35B86DCE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				FE8818F0D926D8A44F49A355 /* PrivacyPolicy.md */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		A58C3515447C531C739884A5 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				F142413106E0A3D39B5E6919 /* PrivacyPolicyView.swift */,
 				796832E4D868F352FF7442C9 /* SettingsView.swift */,
 				7DB1F3A30A32085B34D49E2B /* SettingsWindowController.swift */,
 			);
@@ -191,6 +205,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AEA54A16A471265CF458C696 /* Assets.xcassets in Resources */,
+				EC9748908A0952DB6C2867FC /* PrivacyPolicy.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,6 +226,7 @@
 				F6A471FC3B241565F00E9642 /* MenuBarContent.swift in Sources */,
 				CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */,
 				28E5C1316ED5E87085E32E7E /* PasteService.swift in Sources */,
+				47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */,
 				2D9B09C60AD837B3DB2C3600 /* SettingsView.swift in Sources */,
 				4ED679F04A56529BB4EEEDB5 /* SettingsWindowController.swift in Sources */,
 				4244695508B00CEB6CE5AD83 /* ShelfView.swift in Sources */,
@@ -224,7 +240,7 @@
 		090B4D48153525BA821FA963 /* AppStore */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APP_DISPLAY_NAME = "拾贴";
+				APP_DISPLAY_NAME = ClipHoook;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = ClipboardShelf/Entitlements/AppStore.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -234,7 +250,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie;
-				PRODUCT_NAME = "拾贴";
+				PRODUCT_NAME = ClipHoook;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_STORE;
 			};
@@ -365,7 +381,7 @@
 		87A81298EED993C1DF68AE80 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APP_DISPLAY_NAME = "拾贴测试版";
+				APP_DISPLAY_NAME = "ClipHoook测试版";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = ClipboardShelf/Info.plist;
@@ -374,7 +390,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie.dev;
-				PRODUCT_NAME = "拾贴测试版";
+				PRODUCT_NAME = "ClipHoook测试版";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -450,7 +466,7 @@
 		DD63314D79873B6C7D5EEDFE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APP_DISPLAY_NAME = "拾贴测试版";
+				APP_DISPLAY_NAME = "ClipHoook测试版";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				COMBINE_HIDPI_IMAGES = YES;
@@ -461,7 +477,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie.dev;
-				PRODUCT_NAME = "拾贴测试版";
+				PRODUCT_NAME = "ClipHoook测试版";
 				SDKROOT = macosx;
 			};
 			name = Debug;

@@ -3,9 +3,9 @@ import Combine
 
 @MainActor
 final class AppController: ObservableObject {
-    static let shared = AppController()
+    static let shared = AppController(store: ClipboardHistoryStore())
     private static let hotKeyConflictMessage = "⌘⇧V 注册失败，可能被其他应用占用；仍可从菜单栏打开。"
-    private static let pastePermissionMessage = "已复制。请在系统设置中允许本应用发送键盘事件，然后重试。"
+    private static let pastePermissionMessage = "已复制；允许本应用发送键盘事件后，双击即可自动粘贴。现在可手动按 ⌘V。"
 
     @Published private(set) var entries: [ClipboardEntry] = []
     @Published private(set) var statusMessage: String?
@@ -16,7 +16,7 @@ final class AppController: ObservableObject {
         didSet { UserDefaults.standard.set(isPaused, forKey: "recordingPaused") }
     }
 
-    private let store = ClipboardHistoryStore()
+    private let store: ClipboardHistoryStore
     private let hotKey = GlobalHotKey()
     private lazy var panel = PanelController(model: self)
     private var timer: Timer?
@@ -24,7 +24,8 @@ final class AppController: ObservableObject {
     private var lastChangeCount = NSPasteboard.general.changeCount
     private var started = false
 
-    private init() {
+    init(store: ClipboardHistoryStore) {
+        self.store = store
         isPaused = UserDefaults.standard.bool(forKey: "recordingPaused")
         entries = store.entries
         statusMessage = store.errorMessage
@@ -79,17 +80,15 @@ final class AppController: ObservableObject {
             return
         }
         switch PasteService.availability(requestPermission: true) {
-        case .appStoreBuild:
-            needsPastePermission = false
-            statusMessage = "已复制；此沙盒构建暂不支持自动粘贴，请在原应用按 ⌘V。"
-            panel.hide()
         case .needsPermission:
             needsPastePermission = true
             statusMessage = Self.pastePermissionMessage
+            panel.hide()
         case .ready:
             needsPastePermission = false
             guard let target = panel.previousApplication, !target.isTerminated else {
                 statusMessage = "已复制；未找到原应用，请手动按 ⌘V。"
+                panel.hide()
                 return
             }
             panel.hide { [weak self] in
