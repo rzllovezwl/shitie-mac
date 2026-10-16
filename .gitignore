@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+DerivedData/
+build/
+dist/
+*.xcarchive/
+*.pkg
+*.ipa
+*.p12
+*.mobileprovision
+*.provisionprofile
+ClipboardShelf-MVP.zip
+*.xcuserstate
+xcuserdata/
