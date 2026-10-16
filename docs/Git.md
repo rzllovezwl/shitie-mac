@@ -7,12 +7,12 @@
 
 每项改动从 `develop` 建短期分支，提交代码、XcodeGen 的 `project.yml` 与生成的 `.xcodeproj`。`build/`、`dist/`、归档、证书与配置文件受 `.gitignore` 排除。仓库应设为 GitHub 私有仓库，并开启双重认证。不要把用户剪贴板历史、钥匙串、签名私钥或 App Store Connect API Key 提交进去。
 
-如远端已创建，可从项目目录运行：
+GitHub 私有仓库：[rzllovezwl/shitie-mac](https://github.com/rzllovezwl/shitie-mac)。本地使用 SSH 远端：
 
 ```sh
-git remote add origin git@github.com:rzllovezwl/shitie-mac.git
+git remote -v
 git push -u origin main
 git push -u origin develop
 ```
 
-首次连接前核对 GitHub 用户名、仓库归属和仓库地址；不要把上述示例当作已创建的远端。
+发布归档留在本机 `dist/`，不会随 `git push` 上传。
