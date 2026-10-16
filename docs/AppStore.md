@@ -14,7 +14,7 @@ App Store 页面名称与 Mac 桌面上显示的应用名称可以不同。正�
 
 2026-10-16 已在开发团队 `526XL62KAS` 注册正式 Explicit App ID `com.renzhenglin.shitie`，创建 Apple Distribution 和 Mac Installer Distribution 签名身份，并生成「拾贴 Mac App Store 1.0」配置文件。App Store Connect 已创建 macOS App 记录 `6823468334`，中文名称为「拾贴 - Mac 剪贴板增强工具」。
 
-`AppStore` 配置启用 App Sandbox。Xcode 已导出 [拾贴-1.0.0-AppStore.pkg](../dist/拾贴-1.0.0-AppStore.pkg)；安装器证书链和包内应用的 Apple Distribution 签名、正式 Bundle ID、沙盒 entitlement、`x86_64`/`arm64` 架构均已本机核验。此包尚未上传或提交审核，商店沙盒版的交互也尚未在真实桌面验证。
+`AppStore` 配置启用 App Sandbox。Xcode 已在本机导出 `dist/拾贴-1.0.0-AppStore.pkg`，安装器证书链和包内应用的 Apple Distribution 签名、正式 Bundle ID、沙盒 entitlement、`x86_64`/`arm64` 架构均已本机核验。`dist/` 被 Git 忽略，此包尚未上传或提交审核，商店沙盒版的交互也尚未在真实桌面验证。
 
 App Store Connect 目前提示《Apple Developer Program 许可协议》已更新，账户持有人需亲自查阅并接受后才能提交新 App。此操作涉及法律协议，不由开发流程代签。
 

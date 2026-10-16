@@ -16,7 +16,7 @@
 
 使用 Xcode 27 打开 [ClipboardShelf.xcodeproj](ClipboardShelf.xcodeproj)，日常测试选择「拾贴测试版」scheme 和“我的 Mac”，按 `⌘R` 构建并运行。`⌘B` 只构建，不会重启正在运行的应用。Debug 产物固定在 `build/拾贴测试版.app`，Bundle ID 为 `com.renzhenglin.shitie.dev`。仓库同时包含 [project.yml](project.yml)，可用 XcodeGen 重新生成工程。
 
-归档商店版选择「拾贴上架版」scheme。桌面名称为「拾贴」，Bundle ID 为 `com.renzhenglin.shitie`；App Store Connect 页面名称为「拾贴 - Mac 剪贴板增强工具」，该页面名称不写入应用程序包。两版可分别安装，历史和系统授权也需分别检查。已导出 [上架候选安装包](dist/拾贴-1.0.0-AppStore.pkg)；发布步骤与待办见 [上架说明](docs/AppStore.md)。
+归档商店版选择「拾贴上架版」scheme。桌面名称为「拾贴」，Bundle ID 为 `com.renzhenglin.shitie`；App Store Connect 页面名称为「拾贴 - Mac 剪贴板增强工具」，该页面名称不写入应用程序包。两版可分别安装，历史和系统授权也需分别检查。本机上架候选安装包位于 `dist/拾贴-1.0.0-AppStore.pkg`，不上传 GitHub；发布步骤与待办见 [上架说明](docs/AppStore.md)。
 
 Debug 和 Release 是本地功能构建，不启用 App Sandbox。第一次双击粘贴时，系统可能要求允许发送键盘事件；拒绝后仍可复制记录，再自行按 `⌘V`。macOS 也可能要求允许应用持续读取剪贴板；请在系统设置中选择“始终允许”，否则自动记录会暂停。
 
