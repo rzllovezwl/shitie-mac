@@ -46,13 +46,16 @@ targets:
       configs:
         Debug:
           CONFIGURATION_BUILD_DIR: "$(PROJECT_DIR)/build"
+          PRODUCT_NAME: 拾贴测试版
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie.dev
           APP_DISPLAY_NAME: 拾贴测试版
           CODE_SIGN_IDENTITY: "Apple Development"
         Release:
+          PRODUCT_NAME: 拾贴测试版
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie.dev
           APP_DISPLAY_NAME: 拾贴测试版
         AppStore:
+          PRODUCT_NAME: 拾贴
           PRODUCT_BUNDLE_IDENTIFIER: com.renzhenglin.shitie
           APP_DISPLAY_NAME: 拾贴
           CODE_SIGN_ENTITLEMENTS: ClipboardShelf/Entitlements/AppStore.entitlements

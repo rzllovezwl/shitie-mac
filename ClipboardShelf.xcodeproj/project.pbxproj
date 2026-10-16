@@ -234,6 +234,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie;
+				PRODUCT_NAME = "拾贴";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APP_STORE;
 			};
@@ -373,6 +374,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie.dev;
+				PRODUCT_NAME = "拾贴测试版";
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -459,6 +461,7 @@
 					"@executable_path/../Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.renzhenglin.shitie.dev;
+				PRODUCT_NAME = "拾贴测试版";
 				SDKROOT = macosx;
 			};
 			name = Debug;

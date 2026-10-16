@@ -14,17 +14,17 @@
 
 ## 构建与运行
 
-使用 Xcode 27 打开 [ClipboardShelf.xcodeproj](ClipboardShelf.xcodeproj)，日常测试选择「拾贴测试版」scheme 和“我的 Mac”，按 `⌘R` 构建并运行。`⌘B` 只构建，不会重启正在运行的应用。Debug 产物固定在 `build/ClipboardShelf.app`，桌面名称为「拾贴测试版」，Bundle ID 为 `com.renzhenglin.shitie.dev`。仓库同时包含 [project.yml](project.yml)，可用 XcodeGen 重新生成工程。
+使用 Xcode 27 打开 [ClipboardShelf.xcodeproj](ClipboardShelf.xcodeproj)，日常测试选择「拾贴测试版」scheme 和“我的 Mac”，按 `⌘R` 构建并运行。`⌘B` 只构建，不会重启正在运行的应用。Debug 产物固定在 `build/拾贴测试版.app`，Bundle ID 为 `com.renzhenglin.shitie.dev`。仓库同时包含 [project.yml](project.yml)，可用 XcodeGen 重新生成工程。
 
-归档商店版选择「拾贴上架版」scheme。桌面名称为「拾贴」，Bundle ID 为 `com.renzhenglin.shitie`；App Store Connect 页面名称拟定为「拾贴 - Mac 剪贴板增强工具」，该页面名称不写入应用程序包。两版可分别安装，历史和系统授权也需分别检查。发布步骤与当前阻碍见 [上架说明](docs/AppStore.md)。
+归档商店版选择「拾贴上架版」scheme。桌面名称为「拾贴」，Bundle ID 为 `com.renzhenglin.shitie`；App Store Connect 页面名称为「拾贴 - Mac 剪贴板增强工具」，该页面名称不写入应用程序包。两版可分别安装，历史和系统授权也需分别检查。已导出 [上架候选安装包](dist/拾贴-1.0.0-AppStore.pkg)；发布步骤与待办见 [上架说明](docs/AppStore.md)。
 
 Debug 和 Release 是本地功能构建，不启用 App Sandbox。第一次双击粘贴时，系统可能要求允许发送键盘事件；拒绝后仍可复制记录，再自行按 `⌘V`。macOS 也可能要求允许应用持续读取剪贴板；请在系统设置中选择“始终允许”，否则自动记录会暂停。
 
-本机验证自动粘贴时，只运行 Xcode Debug 产出的 `build/ClipboardShelf.app`。此次测试版 Bundle ID 从示例 ID 改为 `com.renzhenglin.shitie.dev`，macOS 可能要求重新授权一次“设备控制和数据访问”；此后普通代码改动直接按 `⌘R` 即可。如果以后更换开发证书、Bundle ID 或应用路径，也可能需要重新授权。同名的旧 DerivedData 或临时目录构建可能占用另一条权限记录；菜单栏出现权限提示时，可在系统设置中用“在访达中显示”核对授权记录的应用位置。
+本机验证自动粘贴时，只运行 Xcode Debug 产出的 `build/拾贴测试版.app`。此次测试版 Bundle ID 和产物路径均已改变，macOS 可能要求重新授权一次“设备控制和数据访问”；此后普通代码改动直接按 `⌘R` 即可。如果以后更换开发证书、Bundle ID 或应用路径，也可能需要重新授权。同名的旧 DerivedData 或临时目录构建可能占用另一条权限记录；菜单栏出现权限提示时，可在系统设置中用“在访达中显示”核对授权记录的应用位置。
 
 如果其他应用正在使用 `⌘⇧V`，面板仍可从菜单栏打开。本应用每 5 秒重试注册；退出占用快捷键的应用后，无需重启本应用。
 
-`AppStore` 配置启用了 App Sandbox，并将双击操作降级为“复制、收起面板，然后手动粘贴”。这是为了避免把未经审核确认的跨应用模拟按键行为放进商店构建。该配置可以编译，但目前**不是功能完整的商店提交版**。详见 [上架说明](docs/AppStore.md)。
+`AppStore` 配置启用了 App Sandbox，并将双击操作设为“复制、收起面板，然后手动粘贴”。签名安装包已导出，但这与测试版的自动粘贴行为不同；提交前必须按商店构建实测并如实描述。详见 [上架说明](docs/AppStore.md)。
 
 ## Git 分支
 
@@ -34,4 +34,4 @@ Debug 和 Release 是本地功能构建，不启用 App Sandbox。第一次双�
 
 历史仅保存在本机 Application Support 的 `ClipboardShelf` 目录，不使用网络或云同步。系统剪贴板由 macOS 管理；复制或粘贴历史记录会把选中内容留在系统剪贴板。清空历史只删除本应用保存的记录，不清空当前系统剪贴板。
 
-首版不保留富文本格式、不记录 Finder 文件引用，也不支持跨设备同步。上架前需注册正式 Bundle ID、配置发布签名、验证沙盒行为并补齐隐私说明。
+首版不保留富文本格式、不记录 Finder 文件引用，也不支持跨设备同步。正式 Bundle ID 和发布签名已配置；上架前仍需验证沙盒行为并补齐隐私说明。
