@@ -21,11 +21,12 @@ final class AppController: ObservableObject {
     private lazy var panel = PanelController(model: self)
     private var timer: Timer?
     private var lastHotKeyAttempt = Date.distantPast
-    private var lastChangeCount = NSPasteboard.general.changeCount
+    private var clipboardChanges: ClipboardChangeTracker
     private var started = false
 
     init(store: ClipboardHistoryStore) {
         self.store = store
+        clipboardChanges = ClipboardChangeTracker(initialChangeCount: NSPasteboard.general.changeCount)
         isPaused = UserDefaults.standard.bool(forKey: "recordingPaused")
         entries = store.entries
         statusMessage = store.errorMessage
@@ -41,6 +42,7 @@ final class AppController: ObservableObject {
         if case .needsPermission = PasteService.availability(requestPermission: false) {
             needsPastePermission = true
         }
+        _ = CopySoundPlayer.shared
         _ = panel
         retryHotKeyIfNeeded()
         timer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
@@ -170,9 +172,17 @@ final class AppController: ObservableObject {
     }
 
     private func pollPasteboard() {
-        guard !isPaused else { return }
         let board = NSPasteboard.general
-        guard board.changeCount != lastChangeCount else { return }
+        let changeCount = board.changeCount
+        let change = clipboardChanges.observe(changeCount: changeCount)
+        if change.shouldNotify {
+            CopySoundPlayer.shared.playIfEnabled()
+        }
+        guard change.shouldHandle else { return }
+        if isPaused {
+            clipboardChanges.markHandled(changeCount: changeCount)
+            return
+        }
 
         switch board.accessBehavior {
         case .alwaysDeny:
@@ -187,7 +197,7 @@ final class AppController: ObservableObject {
             break
         }
 
-        lastChangeCount = board.changeCount
+        clipboardChanges.markHandled(changeCount: changeCount)
         guard let item = board.pasteboardItems?.first else { return }
         let sourceApp = NSWorkspace.shared.frontmostApplication?.localizedName
 
@@ -225,7 +235,10 @@ final class AppController: ObservableObject {
             board.clearContents()
             succeeded = board.writeObjects([item])
         }
-        lastChangeCount = board.changeCount
+        clipboardChanges.markOwnWrite(changeCount: board.changeCount)
+        if succeeded {
+            CopySoundPlayer.shared.playIfEnabled()
+        }
         return succeeded
     }
 }

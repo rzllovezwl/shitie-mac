@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject var model: AppController
     @AppStorage("panelDisplayScreen") private var panelDisplayScreen = "mouse"
     @AppStorage("panelHeight") private var panelHeight = "standard"
+    @AppStorage(CopySoundPreference.enabledKey) private var copySoundEnabled = true
     @State private var showsPrivacyPolicy = false
 
     private var historySize: String {
@@ -27,6 +28,16 @@ struct SettingsView: View {
                     set: { model.isPaused = !$0 }
                 ))
                 Text("关闭设置窗口后，ClipHoook 仍会在菜单栏运行。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("声音") {
+                Toggle("复制后播放提示音", isOn: $copySoundEnabled)
+                Button("试听提示音", systemImage: "play.circle") {
+                    CopySoundPlayer.shared.playPreview()
+                }
+                Text("每次剪贴板内容变化时播放；关闭录制也不会关闭提示音。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
