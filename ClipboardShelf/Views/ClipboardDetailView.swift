@@ -10,13 +10,20 @@ struct ClipboardDetailView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(entry.kind == .image ? "图片详情" : entry.kind == .link ? "链接详情" : "文本详情", systemImage: entry.symbolName)
+                LucideLabel(
+                    entry.kind == .image ? "图片详情" : entry.kind == .link ? "链接详情" : "文本详情",
+                    symbol: entry.kind.lucideSymbol
+                )
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
-                Button("复制", systemImage: "doc.on.doc", action: onCopy)
+                Button(action: onCopy) {
+                    LucideLabel("复制", symbol: .copy, iconSize: 13)
+                }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
-                Button("关闭", systemImage: "xmark", action: onClose)
+                Button(action: onClose) {
+                    LucideLabel("关闭", symbol: .x, iconSize: 13)
+                }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }

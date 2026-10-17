@@ -14,7 +14,7 @@ struct ReleaseHistoryView: View {
                         ForEach(history.releases) { release in
                             Section {
                                 ForEach(release.changes.indices, id: \.self) { index in
-                                    Label(release.changes[index], systemImage: "checkmark.circle")
+                                    LucideLabel(release.changes[index], symbol: .circleCheck)
                                         .labelStyle(.titleAndIcon)
                                         .padding(.vertical, 3)
                                 }
@@ -44,11 +44,16 @@ struct ReleaseHistoryView: View {
                     }
                     .listStyle(.inset)
                 } else {
-                    ContentUnavailableView(
-                        "版本记录暂不可用",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text("请重新安装应用，或联系 584772541@qq.com。")
-                    )
+                    VStack(spacing: 10) {
+                        LucideIcon(.triangleAlert, size: 36)
+                            .foregroundStyle(.secondary)
+                        Text("版本记录暂不可用")
+                            .font(.headline)
+                        Text("请重新安装应用，或联系 584772541@qq.com。")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .navigationTitle("版本记录")

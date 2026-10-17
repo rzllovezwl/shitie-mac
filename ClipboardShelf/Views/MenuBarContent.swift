@@ -5,12 +5,16 @@ struct MenuBarContent: View {
     @ObservedObject var model: AppController
 
     var body: some View {
-        Button("打开剪贴板", systemImage: "rectangle.on.rectangle") {
+        Button {
             model.togglePanel()
+        } label: {
+            LucideLabel("打开剪贴板", symbol: .clipboard)
         }
 
-        Button("设置…", systemImage: "gearshape") {
+        Button {
             model.openSettings()
+        } label: {
+            LucideLabel("设置…", symbol: .settings)
         }
 
         if let status = model.statusMessage {
@@ -20,17 +24,23 @@ struct MenuBarContent: View {
         }
 
         if model.needsPastePermission {
-            Button("打开键盘事件权限设置…", systemImage: "gearshape") {
+            Button {
                 model.openPastePermissionSettings()
+            } label: {
+                LucideLabel("打开键盘事件权限设置…", symbol: .keyboard)
             }
         }
 
         Divider()
 
-        Toggle("暂停记录", isOn: $model.isPaused)
+        Toggle(isOn: $model.isPaused) {
+            LucideLabel("暂停记录", symbol: .pause)
+        }
 
-        Button("清空历史记录…", systemImage: "trash", role: .destructive) {
+        Button(role: .destructive) {
             model.confirmClearHistory()
+        } label: {
+            LucideLabel("清空历史记录…", symbol: .trash)
         }
         .disabled(model.entries.isEmpty)
 
@@ -42,8 +52,10 @@ struct MenuBarContent: View {
             Text("⌘⇧V 打开或收起")
         }
 
-        Button("退出 ClipHoook") {
+        Button {
             NSApp.terminate(nil)
+        } label: {
+            LucideLabel("退出 ClipHoook", symbol: .x)
         }
     }
 }

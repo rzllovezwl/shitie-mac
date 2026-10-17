@@ -28,12 +28,4 @@ struct ClipboardEntry: Codable, Identifiable, Equatable {
             return firstLine.isEmpty ? "文本" : String(firstLine.prefix(30))
         }
     }
-
-    var symbolName: String {
-        switch kind {
-        case .text: "text.alignleft"
-        case .link: "link"
-        case .image: "photo"
-        }
-    }
 }

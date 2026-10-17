@@ -17,7 +17,9 @@
 		50712D00425D21F1A7C518B0 /* ClipboardShelfApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9823B4446A289238B144650B /* ClipboardShelfApp.swift */; };
 		5364292EED75CCAAED2E2C6F /* HistoryStoragePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6848E038977CC760FA24A0B5 /* HistoryStoragePolicy.swift */; };
 		6E58F2B67BD7743845808000 /* ClipboardChangeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAC5B2FDD31E3FF76313AEB /* ClipboardChangeTracker.swift */; };
+		73702E261B060BD8CC3E4DE0 /* Lucide-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */; };
 		84A08607DE7D1E5E2CF916CF /* CopySoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760009205A79787AC7F119AC /* CopySoundPlayer.swift */; };
+		8555C38FC71AC89261861971 /* LucideIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E4A10857FC2778849FF889 /* LucideIcon.swift */; };
 		906B4328EE2F473A4B8CED47 /* GlobalHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E43410045EA257B0B5BEC4B /* GlobalHotKey.swift */; };
 		962FA4EEB5CFE6CF66732B2D /* ClipboardDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3A1B51754AFF0AB3B0A403C /* ClipboardDetailView.swift */; };
 		9EA43BF9AFF14F039DBE4263 /* ReleaseHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8D73E41A34D681801DB7F4E /* ReleaseHistory.swift */; };
@@ -35,8 +37,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Lucide-LICENSE.txt"; sourceTree = "<group>"; };
 		0A93DD9D17C127EFEAB22B57 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteService.swift; sourceTree = "<group>"; };
 		21BAE11AEB625C1C46A9865D /* ZoomableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImageView.swift; sourceTree = "<group>"; };
+		40E4A10857FC2778849FF889 /* LucideIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucideIcon.swift; sourceTree = "<group>"; };
 		51B2FFEDA1E2ED4AC32AF7E0 /* CopyChime.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = CopyChime.wav; sourceTree = "<group>"; };
 		55AE5F5F250F0A3D2FAB6165 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		56C9A66C2498C64C934E686D /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
@@ -81,6 +85,7 @@
 			children = (
 				6CD5D6C992EBAEE1C2806A7D /* ClipboardCardView.swift */,
 				D3A1B51754AFF0AB3B0A403C /* ClipboardDetailView.swift */,
+				40E4A10857FC2778849FF889 /* LucideIcon.swift */,
 				56C9A66C2498C64C934E686D /* MenuBarContent.swift */,
 				9433378679025CEF820DCFEA /* ShelfView.swift */,
 				21BAE11AEB625C1C46A9865D /* ZoomableImageView.swift */,
@@ -143,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				51B2FFEDA1E2ED4AC32AF7E0 /* CopyChime.wav */,
+				07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */,
 				FE8818F0D926D8A44F49A355 /* PrivacyPolicy.md */,
 				6CBBECB61D1C0B93F084998E /* ReleaseHistory.json */,
 			);
@@ -231,6 +237,7 @@
 			files = (
 				AEA54A16A471265CF458C696 /* Assets.xcassets in Resources */,
 				BAC15D26C999BE89C8C5DC8F /* CopyChime.wav in Resources */,
+				73702E261B060BD8CC3E4DE0 /* Lucide-LICENSE.txt in Resources */,
 				EC9748908A0952DB6C2867FC /* PrivacyPolicy.md in Resources */,
 				F5CD335CC19857A08D542CA7 /* ReleaseHistory.json in Resources */,
 			);
@@ -279,6 +286,7 @@
 				84A08607DE7D1E5E2CF916CF /* CopySoundPlayer.swift in Sources */,
 				906B4328EE2F473A4B8CED47 /* GlobalHotKey.swift in Sources */,
 				5364292EED75CCAAED2E2C6F /* HistoryStoragePolicy.swift in Sources */,
+				8555C38FC71AC89261861971 /* LucideIcon.swift in Sources */,
 				F6A471FC3B241565F00E9642 /* MenuBarContent.swift in Sources */,
 				CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */,
 				E8176DC9BF1B796ADA9A96E9 /* PanelLayout.swift in Sources */,

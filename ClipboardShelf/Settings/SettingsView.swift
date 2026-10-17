@@ -60,8 +60,10 @@ struct SettingsView: View {
 
             Section("声音") {
                 Toggle("复制后播放提示音", isOn: $copySoundEnabled)
-                Button("试听提示音", systemImage: "play.circle") {
+                Button {
                     CopySoundPlayer.shared.playPreview()
+                } label: {
+                    LucideLabel("试听提示音", symbol: .play)
                 }
                 Text("每次剪贴板内容变化时播放；关闭录制也不会关闭提示音。")
                     .font(.footnote)
@@ -129,8 +131,10 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                 LabeledContent("已保存", value: "\(model.entries.count) 条")
                 LabeledContent("内容大小", value: historySize)
-                Button("清空历史记录…", systemImage: "trash", role: .destructive) {
+                Button(role: .destructive) {
                     model.confirmClearHistory()
+                } label: {
+                    LucideLabel("清空历史记录…", symbol: .trash)
                 }
                 .disabled(model.entries.isEmpty)
             }
@@ -138,8 +142,10 @@ struct SettingsView: View {
             Section("快捷键与权限") {
                 LabeledContent("打开面板", value: "⌘⇧V")
                 LabeledContent("双击自动粘贴", value: pastePermissionStatus)
-                Button("打开键盘事件权限设置…", systemImage: "gearshape") {
+                Button {
                     model.openPastePermissionSettings()
+                } label: {
+                    LucideLabel("打开键盘事件权限设置…", symbol: .keyboard)
                 }
                 Text("授权后，双击记录会收起面板并向原应用发送 ⌘V。未授权时仍可复制后手动粘贴。")
                     .font(.footnote)
@@ -148,11 +154,15 @@ struct SettingsView: View {
 
             Section("关于与隐私") {
                 LabeledContent("当前版本", value: currentVersion)
-                Button("版本记录…", systemImage: "clock.arrow.circlepath") {
+                Button {
                     showsReleaseHistory = true
+                } label: {
+                    LucideLabel("版本记录…", symbol: .history)
                 }
-                Button("隐私政策…", systemImage: "hand.raised") {
+                Button {
                     showsPrivacyPolicy = true
+                } label: {
+                    LucideLabel("隐私政策…", symbol: .shieldCheck)
                 }
                 Text("联系开发者：584772541@qq.com")
                     .font(.footnote)
@@ -264,7 +274,7 @@ private struct PanelHeightOption: View {
 
                 HStack(spacing: 4) {
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
+                        LucideIcon(.circleCheck, size: 15)
                             .foregroundStyle(.tint)
                     }
                     Text(choice.title)

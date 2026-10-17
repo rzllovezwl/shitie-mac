@@ -137,7 +137,7 @@ struct ShelfView: View {
 
     private var searchField: some View {
         HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
+            LucideIcon(.search, size: 16)
                 .foregroundStyle(.secondary)
             TextField("搜索历史", text: $searchText)
                 .textFieldStyle(.plain)
@@ -147,7 +147,7 @@ struct ShelfView: View {
 
     private var titleAndCount: some View {
         HStack(spacing: 8) {
-            Label("剪贴板", systemImage: "clock.arrow.circlepath")
+            LucideLabel("剪贴板", symbol: .history, iconSize: 15)
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, isVertical ? 8 : 12)
                 .padding(.vertical, 7)
@@ -161,22 +161,22 @@ struct ShelfView: View {
     private var headerActions: some View {
         HStack(spacing: 6) {
             headerAction(
-                symbol: model.isPaused ? "play.circle" : "pause.circle",
+                symbol: model.isPaused ? .play : .pause,
                 title: model.isPaused ? "继续记录" : "暂停记录"
             ) {
                 model.isPaused.toggle()
             }
 
-            headerAction(symbol: "trash.circle", title: "清空历史记录") {
+            headerAction(symbol: .trash, title: "清空历史记录") {
                 model.confirmClearHistory()
             }
             .disabled(model.entries.isEmpty)
 
-            headerAction(symbol: "gearshape.circle", title: "打开设置") {
+            headerAction(symbol: .settings, title: "打开设置") {
                 model.openSettings()
             }
 
-            headerAction(symbol: "xmark.circle", title: "收起面板") {
+            headerAction(symbol: .x, title: "收起面板") {
                 if detailEntry != nil {
                     closeDetail()
                 } else {
@@ -188,14 +188,12 @@ struct ShelfView: View {
     }
 
     private func headerAction(
-        symbol: String,
+        symbol: LucideSymbol,
         title: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 18, weight: .regular))
-                .symbolRenderingMode(.monochrome)
+            LucideIcon(symbol, size: 17)
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
@@ -207,11 +205,15 @@ struct ShelfView: View {
     private var historyStrip: some View {
         Group {
             if filteredEntries.isEmpty {
-                ContentUnavailableView(
-                    searchText.isEmpty ? "还没有剪贴板记录" : "没有匹配的记录",
-                    systemImage: searchText.isEmpty ? "doc.on.clipboard" : "magnifyingglass",
-                    description: Text(searchText.isEmpty ? "复制文字、链接或图片后会出现在这里。" : "试试其他关键词。")
-                )
+                VStack(spacing: 10) {
+                    LucideIcon(searchText.isEmpty ? .clipboard : .search, size: 34)
+                        .foregroundStyle(.secondary)
+                    Text(searchText.isEmpty ? "还没有剪贴板记录" : "没有匹配的记录")
+                        .font(.headline)
+                    Text(searchText.isEmpty ? "复制文字、链接或图片后会出现在这里。" : "试试其他关键词。")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { stripGeometry in

@@ -17,7 +17,7 @@ struct ClipboardCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10 * textScale) {
             HStack(spacing: 6) {
-                Image(systemName: entry.symbolName)
+                LucideIcon(entry.kind.lucideSymbol, size: 11 * textScale)
                 Text(entry.kind == .image ? "图片" : entry.kind == .link ? "链接" : "文本")
                 Spacer(minLength: 4)
                 Text(entry.createdAt, style: .relative)
@@ -48,7 +48,7 @@ struct ClipboardCardView: View {
                 Text(entry.sourceAppName ?? "未知来源")
                     .lineLimit(1)
                 Spacer()
-                Image(systemName: "arrow.up.left")
+                LucideIcon(.arrowUpLeft, size: 10 * textScale)
             }
             .font(.system(size: 10 * textScale))
             .foregroundStyle(.tertiary)

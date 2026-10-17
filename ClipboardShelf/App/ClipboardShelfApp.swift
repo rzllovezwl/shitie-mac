@@ -44,8 +44,14 @@ struct ClipboardShelfApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("ClipHoook", systemImage: "doc.on.clipboard") {
+        MenuBarExtra {
             MenuBarContent(model: AppController.shared)
+        } label: {
+            Image(LucideSymbol.clipboard.assetName)
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 18, height: 18)
+                .accessibilityLabel("ClipHoook")
         }
         .menuBarExtraStyle(.menu)
     }
