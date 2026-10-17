@@ -5,6 +5,7 @@ enum LucideSymbol: String, CaseIterable {
     case arrowUpLeft = "arrow-up-left"
     case circleCheck = "circle-check"
     case clipboard
+    case clipboardClock = "clipboard-clock"
     case copy
     case history
     case image
@@ -12,6 +13,7 @@ enum LucideSymbol: String, CaseIterable {
     case link = "link-2"
     case pause
     case play
+    case scanSearch = "scan-search"
     case search
     case settings = "settings-2"
     case shieldCheck = "shield-check"

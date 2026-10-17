@@ -137,7 +137,7 @@ struct ShelfView: View {
 
     private var searchField: some View {
         HStack(spacing: 10) {
-            LucideIcon(.search, size: 16)
+            LucideIcon(.scanSearch, size: 16)
                 .foregroundStyle(.secondary)
             TextField("搜索历史", text: $searchText)
                 .textFieldStyle(.plain)
@@ -147,7 +147,7 @@ struct ShelfView: View {
 
     private var titleAndCount: some View {
         HStack(spacing: 8) {
-            LucideLabel("剪贴板", symbol: .history, iconSize: 15)
+            LucideLabel("剪贴板", symbol: .clipboardClock, iconSize: 15)
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, isVertical ? 8 : 12)
                 .padding(.vertical, 7)
@@ -206,7 +206,7 @@ struct ShelfView: View {
         Group {
             if filteredEntries.isEmpty {
                 VStack(spacing: 10) {
-                    LucideIcon(searchText.isEmpty ? .clipboard : .search, size: 34)
+                    LucideIcon(searchText.isEmpty ? .clipboard : .scanSearch, size: 34)
                         .foregroundStyle(.secondary)
                     Text(searchText.isEmpty ? "还没有剪贴板记录" : "没有匹配的记录")
                         .font(.headline)
