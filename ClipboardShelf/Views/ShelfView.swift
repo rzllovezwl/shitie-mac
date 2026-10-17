@@ -66,6 +66,7 @@ struct ShelfView: View {
                         entry: entry,
                         imageURL: model.imageURL(for: entry),
                         onCopy: { model.copy(entry) },
+                        onDelete: { model.confirmDelete(entry) },
                         onClose: { closeDetail() }
                     )
                     .frame(
@@ -276,7 +277,8 @@ struct ShelfView: View {
                 isSelected: selectedID == entry.id,
                 onSelect: { select(entry) },
                 onPaste: { model.paste(entry) },
-                onCopy: { model.copy(entry) }
+                onCopy: { model.copy(entry) },
+                onDelete: { model.confirmDelete(entry) }
             )
         }
     }

@@ -15,6 +15,7 @@ settings:
     GENERATE_INFOPLIST_FILE: NO
     INFOPLIST_FILE: ClipboardShelf/Info.plist
     ENABLE_HARDENED_RUNTIME: YES
+    OTHER_LDFLAGS: "$(inherited) -lsqlite3"
     DEVELOPMENT_TEAM: 526XL62KAS
 schemes:
   ClipHoook测试版:

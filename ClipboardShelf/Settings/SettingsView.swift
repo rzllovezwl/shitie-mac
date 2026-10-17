@@ -24,8 +24,7 @@ struct SettingsView: View {
     }
 
     private var historySize: String {
-        let bytes = model.entries.reduce(0) { $0 + $1.byteCount }
-        return ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: model.historyStorageBytes, countStyle: .file)
     }
 
     private var pastePermissionStatus: String {
@@ -43,6 +42,31 @@ struct SettingsView: View {
                     set: { model.isPaused = !$0 }
                 ))
                 Text("关闭设置窗口后，ClipHoook 仍会在菜单栏运行。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("不记录的应用") {
+                if !RecordingExclusionPolicy.configurationIsValid(in: .standard) {
+                    Text("排除设置无法读取，当前已停止保存新记录。")
+                        .foregroundStyle(.orange)
+                    Button("重置排除设置") { model.resetExcludedApplications() }
+                }
+                ForEach(model.excludedApplications) { application in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(application.name)
+                            Text(application.bundleIdentifier)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("移除") { model.removeExcludedApplication(application) }
+                            .help("允许再次记录此应用")
+                    }
+                }
+                Button("添加应用…") { model.addExcludedApplication() }
+                Text("复制来源由当前前台应用推断。设置排除后，切换应用期间来源不明确的内容也会跳过记录；后台应用复制的来源无法保证识别。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -130,7 +154,31 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                 LabeledContent("已保存", value: "\(model.entries.count) 条")
-                LabeledContent("内容大小", value: historySize)
+                LabeledContent("实际占用", value: historySize)
+                if model.migrationBackupBytes > 0 {
+                    LabeledContent(
+                        "旧历史备份",
+                        value: ByteCountFormatter.string(fromByteCount: model.migrationBackupBytes, countStyle: .file)
+                    )
+                    Text("迁移备份独立保存，不计入历史存储上限。确认新历史完整后可手动删除。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("删除旧历史备份…", role: .destructive) {
+                        model.confirmRemoveMigrationBackup()
+                    }
+                }
+                if model.recoveryBytes > 0 {
+                    LabeledContent(
+                        "未关联的恢复文件",
+                        value: ByteCountFormatter.string(fromByteCount: model.recoveryBytes, countStyle: .file)
+                    )
+                    Text("这些文件未对应当前历史记录，已移到恢复目录，不计入当前历史上限。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("删除恢复文件…", role: .destructive) {
+                        model.confirmRemoveRecoveryFiles()
+                    }
+                }
                 Button(role: .destructive) {
                     model.confirmClearHistory()
                 } label: {

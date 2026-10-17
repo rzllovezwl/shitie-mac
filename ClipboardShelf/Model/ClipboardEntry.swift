@@ -1,14 +1,17 @@
 import Foundation
 
-struct ClipboardEntry: Codable, Identifiable, Equatable {
-    enum Kind: String, Codable {
+struct ClipboardEntry: Identifiable, Equatable {
+    enum Kind: String {
         case text
         case link
         case image
     }
 
     let id: UUID
+    // `createdAt` remains the most recent copy time for existing views.
     var createdAt: Date
+    var firstCopiedAt: Date?
+    var copyCount: Int?
     let kind: Kind
     let text: String?
     let imageFileName: String?
@@ -16,6 +19,7 @@ struct ClipboardEntry: Codable, Identifiable, Equatable {
     let digest: String
     let byteCount: Int
     var sourceAppName: String?
+    var sourceAppBundleID: String?
 
     var title: String {
         switch kind {

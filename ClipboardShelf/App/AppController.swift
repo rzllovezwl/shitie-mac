@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import UniformTypeIdentifiers
 
 enum AppAppearanceMode: String, CaseIterable, Identifiable {
     static let preferenceKey = "appAppearanceMode"
@@ -36,6 +37,10 @@ final class AppController: ObservableObject {
     @Published private(set) var hotKeyRegistered = false
     @Published private(set) var needsPastePermission = false
     @Published private(set) var panelPresentationID = UUID()
+    @Published private(set) var excludedApplications: [ExcludedApplication] = []
+    @Published private(set) var historyStorageBytes: Int64 = 0
+    @Published private(set) var migrationBackupBytes: Int64 = 0
+    @Published private(set) var recoveryBytes: Int64 = 0
     @Published var isPaused: Bool {
         didSet { UserDefaults.standard.set(isPaused, forKey: "recordingPaused") }
     }
@@ -46,8 +51,14 @@ final class AppController: ObservableObject {
     private var timer: Timer?
     private var lastHotKeyAttempt = Date.distantPast
     private var lastHistoryCleanup = Date.distantPast
+    private var lastStorageRefresh = Date.distantPast
+    private var storageRefreshPending = false
     private var clipboardChanges: ClipboardChangeTracker
     private var started = false
+    private var foregroundActivationCount = 0
+    private var activationCountAtLastPoll = 0
+    private var lastPolledForegroundBundleID: String?
+    private var activationObserver: NSObjectProtocol?
 
     init(store: ClipboardHistoryStore) {
         self.store = store
@@ -55,9 +66,12 @@ final class AppController: ObservableObject {
         isPaused = UserDefaults.standard.bool(forKey: "recordingPaused")
         entries = store.entries
         statusMessage = store.errorMessage
+        excludedApplications = RecordingExclusionPolicy.applications(in: .standard)
+        refreshStorageSizes()
     }
 
     func openSettings() {
+        refreshStorageSizes()
         SettingsWindowController.shared.open()
     }
 
@@ -70,12 +84,22 @@ final class AppController: ObservableObject {
         }
         _ = CopySoundPlayer.shared
         _ = panel
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.foregroundActivationCount += 1 }
+        }
         retryHotKeyIfNeeded()
         timer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.retryHotKeyIfNeeded()
                 self?.refreshPastePermission()
                 self?.cleanHistoryIfNeeded()
+                if self?.storageRefreshPending == true {
+                    self?.refreshStorageSizes(force: false)
+                }
                 self?.pollPasteboard()
             }
         }
@@ -108,7 +132,10 @@ final class AppController: ObservableObject {
             if try store.applyStoragePolicy() {
                 entries = store.entries
             }
+            refreshStorageSizes()
         } catch {
+            entries = store.entries
+            refreshStorageSizes()
             statusMessage = "清理历史记录失败：\(error.localizedDescription)"
         }
     }
@@ -185,10 +212,95 @@ final class AppController: ObservableObject {
             do {
                 try store.clear()
                 entries = []
+                refreshStorageSizes()
                 statusMessage = "历史记录已清空"
             } catch {
+                entries = store.entries
+                refreshStorageSizes()
                 statusMessage = "清空失败：\(error.localizedDescription)"
             }
+        }
+    }
+
+    func confirmDelete(_ entry: ClipboardEntry) {
+        let alert = NSAlert()
+        alert.messageText = "删除这条历史记录？"
+        alert.informativeText = "只删除本机保存的这条记录，不会清空当前系统剪贴板。"
+        alert.addButton(withTitle: "删除")
+        alert.addButton(withTitle: "取消")
+        alert.alertStyle = .warning
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try store.delete(entry)
+            entries = store.entries
+            refreshStorageSizes()
+            statusMessage = "已删除历史记录"
+        } catch {
+            entries = store.entries
+            refreshStorageSizes()
+            statusMessage = "删除失败：\(error.localizedDescription)"
+        }
+    }
+
+    func addExcludedApplication() {
+        let picker = NSOpenPanel()
+        picker.message = "选择不记录剪贴板内容的应用"
+        picker.allowedContentTypes = [.applicationBundle]
+        picker.canChooseDirectories = false
+        picker.allowsMultipleSelection = false
+        guard picker.runModal() == .OK, let url = picker.url,
+              let bundle = Bundle(url: url), let bundleID = bundle.bundleIdentifier else {
+            return
+        }
+        let name = (bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String)
+            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String)
+            ?? url.deletingPathExtension().lastPathComponent
+        excludedApplications.removeAll { $0.bundleIdentifier == bundleID }
+        excludedApplications.append(ExcludedApplication(bundleIdentifier: bundleID, name: name))
+        excludedApplications.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        RecordingExclusionPolicy.save(excludedApplications, in: .standard)
+    }
+
+    func removeExcludedApplication(_ application: ExcludedApplication) {
+        excludedApplications.removeAll { $0.id == application.id }
+        RecordingExclusionPolicy.save(excludedApplications, in: .standard)
+    }
+
+    func resetExcludedApplications() {
+        excludedApplications = []
+        RecordingExclusionPolicy.save([], in: .standard)
+        statusMessage = nil
+    }
+
+    func confirmRemoveMigrationBackup() {
+        let alert = NSAlert()
+        alert.messageText = "删除旧历史备份？"
+        alert.informativeText = "这份备份用于迁移后的手动回退。删除后无法用它恢复迁移前的历史记录。"
+        alert.addButton(withTitle: "删除备份")
+        alert.addButton(withTitle: "取消")
+        alert.alertStyle = .warning
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try store.removeMigrationBackup()
+            refreshStorageSizes()
+        } catch {
+            statusMessage = "删除备份失败：\(error.localizedDescription)"
+        }
+    }
+
+    func confirmRemoveRecoveryFiles() {
+        let alert = NSAlert()
+        alert.messageText = "删除未关联的恢复文件？"
+        alert.informativeText = "这些文件不在当前历史列表中。删除后无法再手动找回它们。"
+        alert.addButton(withTitle: "删除恢复文件")
+        alert.addButton(withTitle: "取消")
+        alert.alertStyle = .warning
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try store.removeRecoveryFiles()
+            refreshStorageSizes()
+        } catch {
+            statusMessage = "删除恢复文件失败：\(error.localizedDescription)"
         }
     }
 
@@ -227,6 +339,11 @@ final class AppController: ObservableObject {
         let board = NSPasteboard.general
         let changeCount = board.changeCount
         let change = clipboardChanges.observe(changeCount: changeCount)
+        let source = NSWorkspace.shared.frontmostApplication
+        let foregroundChanged = foregroundActivationCount != activationCountAtLastPoll
+            || source?.bundleIdentifier != lastPolledForegroundBundleID
+        lastPolledForegroundBundleID = source?.bundleIdentifier
+        activationCountAtLastPoll = foregroundActivationCount
         if change.shouldNotify {
             CopySoundPlayer.shared.playIfEnabled()
         }
@@ -250,27 +367,52 @@ final class AppController: ObservableObject {
         }
 
         clipboardChanges.markHandled(changeCount: changeCount)
+        guard RecordingExclusionPolicy.configurationIsValid(in: .standard) else {
+            statusMessage = "应用排除设置无法读取，已暂停保存；请在设置中重新添加排除应用。"
+            return
+        }
+        guard RecordingExclusionPolicy.shouldRecord(
+            sourceBundleID: source?.bundleIdentifier,
+            foregroundChangedSinceLastPoll: foregroundChanged,
+            excluded: excludedApplications
+        ) else { return }
         guard let item = board.pasteboardItems?.first else { return }
-        let sourceApp = NSWorkspace.shared.frontmostApplication?.localizedName
+        let sourceApp = foregroundChanged ? nil : source?.localizedName
+        let sourceBundleID = foregroundChanged ? nil : source?.bundleIdentifier
 
         do {
             let added: Bool
             if let image = item.data(forType: .png) {
-                added = try store.addImage(image, type: NSPasteboard.PasteboardType.png.rawValue, sourceAppName: sourceApp)
+                added = try store.addImage(image, type: NSPasteboard.PasteboardType.png.rawValue, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
             } else if let image = item.data(forType: .tiff) {
-                added = try store.addImage(image, type: NSPasteboard.PasteboardType.tiff.rawValue, sourceAppName: sourceApp)
+                added = try store.addImage(image, type: NSPasteboard.PasteboardType.tiff.rawValue, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
             } else if let text = item.string(forType: .string) {
-                added = try store.addText(text, sourceAppName: sourceApp)
+                added = try store.addText(text, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
             } else {
                 return
             }
             if added {
                 entries = store.entries
+                refreshStorageSizes(force: false)
                 statusMessage = nil
             }
         } catch {
+            entries = store.entries
+            refreshStorageSizes(force: false)
             statusMessage = "保存剪贴板内容失败：\(error.localizedDescription)"
         }
+    }
+
+    private func refreshStorageSizes(force: Bool = true) {
+        if !force && Date().timeIntervalSince(lastStorageRefresh) < 5 {
+            storageRefreshPending = true
+            return
+        }
+        lastStorageRefresh = .now
+        storageRefreshPending = false
+        historyStorageBytes = store.activeStorageBytes
+        migrationBackupBytes = store.migrationBackupBytes
+        recoveryBytes = store.recoveryBytes
     }
 
     private func writeToPasteboard(_ entry: ClipboardEntry) -> Bool {
@@ -278,8 +420,9 @@ final class AppController: ObservableObject {
         let succeeded: Bool
         switch entry.kind {
         case .text, .link:
+            guard let text = entry.text else { return false }
             board.clearContents()
-            succeeded = board.setString(entry.text ?? "", forType: .string)
+            succeeded = board.setString(text, forType: .string)
         case .image:
             guard let url = store.imageURL(for: entry), let data = try? Data(contentsOf: url) else { return false }
             let item = NSPasteboardItem()

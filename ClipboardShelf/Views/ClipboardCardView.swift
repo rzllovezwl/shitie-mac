@@ -9,6 +9,7 @@ struct ClipboardCardView: View {
     let onSelect: () -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    let onDelete: () -> Void
 
     private var textScale: CGFloat {
         min(1.25, max(0.9, cardSize.height / 252))
@@ -34,8 +35,12 @@ struct ClipboardCardView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if entry.kind == .image {
+                    Text("图片文件不可用")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    Text(entry.text ?? "")
+                    Text(entry.text ?? "内容文件不可用")
                         .font(.system(size: 14 * textScale))
                         .foregroundStyle(.primary)
                         .truncationMode(.tail)
@@ -67,7 +72,8 @@ struct ClipboardCardView: View {
             ImmediateCardInteraction(
                 onSelect: onSelect,
                 onPaste: onPaste,
-                onCopy: onCopy
+                onCopy: onCopy,
+                onDelete: onDelete
             )
         }
         .accessibilityElement(children: .combine)
@@ -79,6 +85,7 @@ private struct ImmediateCardInteraction: NSViewRepresentable {
     let onSelect: () -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    let onDelete: () -> Void
 
     func makeNSView(context: Context) -> CardInteractionView {
         CardInteractionView()
@@ -88,6 +95,7 @@ private struct ImmediateCardInteraction: NSViewRepresentable {
         view.onSelect = onSelect
         view.onPaste = onPaste
         view.onCopy = onCopy
+        view.onDelete = onDelete
     }
 }
 
@@ -95,6 +103,7 @@ private final class CardInteractionView: NSView {
     var onSelect: (() -> Void)?
     var onPaste: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onDelete: (() -> Void)?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -110,10 +119,16 @@ private final class CardInteractionView: NSView {
         let menu = NSMenu()
         let copyItem = menu.addItem(withTitle: "复制", action: #selector(copyEntry), keyEquivalent: "")
         copyItem.target = self
+        let deleteItem = menu.addItem(withTitle: "删除记录…", action: #selector(deleteEntry), keyEquivalent: "")
+        deleteItem.target = self
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 
     @objc private func copyEntry() {
         onCopy?()
+    }
+
+    @objc private func deleteEntry() {
+        onDelete?()
     }
 }
