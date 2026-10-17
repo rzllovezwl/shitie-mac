@@ -74,6 +74,7 @@ struct ShelfView: View {
                         savedCopyName: model.savedCopyDisplayName(for: entry),
                         fileReferenceAvailable: model.fileReferenceIsAvailable(entry),
                         onCopy: { model.copy(entry) },
+                        onPin: { model.pinImage(entry) },
                         onSaveFileCopy: { model.saveFileCopy(entry) },
                         onDelete: { model.confirmDelete(entry) },
                         onClose: { closeDetail() }
@@ -264,6 +265,7 @@ struct ShelfView: View {
                 onSelect: { select(entry) },
                 onPaste: { model.paste(entry) },
                 onCopy: { model.copy(entry) },
+                onPin: entry.kind == .image ? { model.pinImage(entry) } : nil,
                 onDelete: { model.confirmDelete(entry) }
             )
         }

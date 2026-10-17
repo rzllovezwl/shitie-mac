@@ -14,6 +14,7 @@ enum LucideSymbol: String, CaseIterable {
     case keyboard
     case link = "link-2"
     case pause
+    case pin
     case play
     case scanSearch = "scan-search"
     case search

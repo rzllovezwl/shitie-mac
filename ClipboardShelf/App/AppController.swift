@@ -48,6 +48,7 @@ final class AppController: ObservableObject {
     private let store: ClipboardHistoryStore
     private let hotKey = GlobalHotKey()
     private lazy var panel = PanelController(model: self)
+    private let pinnedImages = PinnedImageWindowController()
     private var timer: Timer?
     private var lastHotKeyAttempt = Date.distantPast
     private var lastHistoryCleanup = Date.distantPast
@@ -148,6 +149,18 @@ final class AppController: ObservableObject {
             return
         }
         statusMessage = "已复制到剪贴板"
+        panel.hide()
+    }
+
+    func pinImage(_ entry: ClipboardEntry) {
+        guard entry.kind == .image,
+              let url = store.imageURL(for: entry),
+              let data = try? Data(contentsOf: url),
+              let image = NSImage(data: data) else {
+            statusMessage = "图片文件不可用，无法固定到桌面。"
+            return
+        }
+        pinnedImages.show(entryID: entry.id, image: image)
         panel.hide()
     }
 

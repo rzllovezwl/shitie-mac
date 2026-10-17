@@ -98,6 +98,7 @@ struct ClipboardListRowView: View {
     let onSelect: () -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    let onPin: (() -> Void)?
     let onDelete: () -> Void
 
     private var kindName: String {
@@ -181,6 +182,7 @@ struct ClipboardListRowView: View {
                 onSelect: onSelect,
                 onPaste: onPaste,
                 onCopy: onCopy,
+                onPin: onPin,
                 onDelete: onDelete
             )
         }
@@ -193,6 +195,7 @@ private struct ImmediateCardInteraction: NSViewRepresentable {
     let onSelect: () -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    var onPin: (() -> Void)? = nil
     let onDelete: () -> Void
 
     func makeNSView(context: Context) -> CardInteractionView {
@@ -203,6 +206,7 @@ private struct ImmediateCardInteraction: NSViewRepresentable {
         view.onSelect = onSelect
         view.onPaste = onPaste
         view.onCopy = onCopy
+        view.onPin = onPin
         view.onDelete = onDelete
     }
 }
@@ -211,6 +215,7 @@ private final class CardInteractionView: NSView {
     var onSelect: (() -> Void)?
     var onPaste: (() -> Void)?
     var onCopy: (() -> Void)?
+    var onPin: (() -> Void)?
     var onDelete: (() -> Void)?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -227,6 +232,10 @@ private final class CardInteractionView: NSView {
         let menu = NSMenu()
         let copyItem = menu.addItem(withTitle: "复制", action: #selector(copyEntry), keyEquivalent: "")
         copyItem.target = self
+        if onPin != nil {
+            let pinItem = menu.addItem(withTitle: "固定图片到桌面", action: #selector(pinEntry), keyEquivalent: "")
+            pinItem.target = self
+        }
         let deleteItem = menu.addItem(withTitle: "删除记录…", action: #selector(deleteEntry), keyEquivalent: "")
         deleteItem.target = self
         NSMenu.popUpContextMenu(menu, with: event, for: self)
@@ -234,6 +243,10 @@ private final class CardInteractionView: NSView {
 
     @objc private func copyEntry() {
         onCopy?()
+    }
+
+    @objc private func pinEntry() {
+        onPin?()
     }
 
     @objc private func deleteEntry() {

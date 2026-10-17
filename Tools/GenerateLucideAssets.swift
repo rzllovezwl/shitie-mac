@@ -6,7 +6,7 @@ import Foundation
 // generated PDFs contain paths, so the app does not need to load a font.
 let iconNames = [
     "align-left", "arrow-up-left", "circle-check", "circle-help", "clipboard", "clipboard-clock",
-    "copy", "file", "history", "image", "keyboard", "link-2", "pause", "play",
+    "copy", "file", "history", "image", "keyboard", "link-2", "pause", "pin", "play",
     "scan-search", "search", "settings-2", "shield-check", "trash-2",
     "triangle-alert", "x"
 ]
