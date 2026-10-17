@@ -1,6 +1,30 @@
 import AppKit
 import Combine
 
+enum AppAppearanceMode: String, CaseIterable, Identifiable {
+    static let preferenceKey = "appAppearanceMode"
+
+    case system, light, dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "跟随系统"
+        case .light: "浅色"
+        case .dark: "深色"
+        }
+    }
+
+    var appearance: NSAppearance? {
+        switch self {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+}
+
 @MainActor
 final class AppController: ObservableObject {
     static let shared = AppController(store: ClipboardHistoryStore())
@@ -40,6 +64,7 @@ final class AppController: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        updateAppearance(UserDefaults.standard.string(forKey: AppAppearanceMode.preferenceKey))
         if case .needsPermission = PasteService.availability(requestPermission: false) {
             needsPastePermission = true
         }
@@ -71,6 +96,11 @@ final class AppController: ObservableObject {
 
     func updatePanelLayout() {
         panel.updateLayoutIfVisible()
+    }
+
+    func updateAppearance(_ rawValue: String?) {
+        let mode = AppAppearanceMode(rawValue: rawValue ?? "") ?? .system
+        NSApp.appearance = mode.appearance
     }
 
     func applyHistoryStorageSettings() {

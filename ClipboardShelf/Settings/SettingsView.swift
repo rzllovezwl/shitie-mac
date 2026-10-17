@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: AppController
+    @AppStorage(AppAppearanceMode.preferenceKey) private var appAppearanceMode = AppAppearanceMode.system.rawValue
     @AppStorage("panelDisplayScreen") private var panelDisplayScreen = "mouse"
     @AppStorage("panelPlacement") private var panelPlacement = "bottom"
     @AppStorage("panelHeight") private var panelHeight = "standard"
@@ -42,6 +43,17 @@ struct SettingsView: View {
                     set: { model.isPaused = !$0 }
                 ))
                 Text("关闭设置窗口后，ClipHoook 仍会在菜单栏运行。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("外观") {
+                Picker("显示模式", selection: $appAppearanceMode) {
+                    ForEach(AppAppearanceMode.allCases) { mode in
+                        Text(mode.title).tag(mode.rawValue)
+                    }
+                }
+                Text("默认为跟随系统；切换后面板和设置窗口立即更新。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -149,6 +161,9 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 520, minHeight: 480)
+        .onChange(of: appAppearanceMode) { _, newValue in
+            model.updateAppearance(newValue)
+        }
         .onChange(of: panelHeight) { _, newValue in
             model.updatePanelLayout()
         }
