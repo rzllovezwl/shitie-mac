@@ -88,11 +88,9 @@ final class PanelController {
         let startFrame = PanelLayout.offscreenFrame(from: targetFrame, placement: currentPlacement)
         panel.setFrame(startFrame, display: false)
         panel.orderFrontRegardless()
-        // AppKit raises the current main and key windows when activating the app.
-        // Select the shelf first so an already open Settings window stays in
-        // its existing place behind the app the user was working in.
         panel.makeKeyAndOrderFront(nil)
         panel.makeMain()
+        SettingsWindowController.shared.keepBehindOtherAppsWhilePanelIsOpen()
         _ = NSRunningApplication.current.activate(options: [])
         // Activation can finish on the next run loop. Keep keyboard navigation
         // and trackpad gestures directed to the shelf after that transition.
@@ -110,6 +108,7 @@ final class PanelController {
             MainActor.assumeIsolated {
                 guard let self, self.panel.isVisible,
                       SettingsWindowController.shared.contains(event.window) else { return }
+                SettingsWindowController.shared.restoreForInteraction()
                 self.hide()
             }
             return event

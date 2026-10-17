@@ -31,6 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
     }
+
+    func applicationDidResignActive(_ notification: Notification) {
+        Task { @MainActor in
+            SettingsWindowController.shared.restoreAfterAppDeactivates()
+        }
+    }
 }
 
 @main
