@@ -35,7 +35,7 @@ final class ClipboardHistoryDatabase {
             try execute("PRAGMA busy_timeout = 2000")
             try execute("PRAGMA secure_delete = ON")
             let version = try userVersion()
-            guard version <= 1 else {
+            guard version <= 2 else {
                 throw ClipboardHistoryDatabaseError.unsupportedVersion(version)
             }
             if version == 0 {
@@ -52,13 +52,33 @@ final class ClipboardHistoryDatabase {
                         image_pasteboard_type TEXT,
                         byte_count INTEGER NOT NULL,
                         source_app_name TEXT,
-                        source_app_bundle_id TEXT
+                        source_app_bundle_id TEXT,
+                        rtf_file_name TEXT,
+                        html_file_name TEXT,
+                        rtfd_file_name TEXT,
+                        file_path TEXT,
+                        file_name TEXT,
+                        file_type TEXT,
+                        file_bookmark_name TEXT,
+                        file_copy_name TEXT
                     )
                     """)
                 try execute("CREATE INDEX IF NOT EXISTS history_by_recent_copy ON history_entries(last_copied_at DESC)")
                 try execute("CREATE INDEX IF NOT EXISTS history_by_source ON history_entries(source_app_bundle_id)")
                 try execute("CREATE INDEX IF NOT EXISTS history_by_kind ON history_entries(kind)")
-                try execute("PRAGMA user_version = 1")
+                try execute("PRAGMA user_version = 2")
+            } else if version == 1 {
+                try transaction {
+                    try execute("ALTER TABLE history_entries ADD COLUMN rtf_file_name TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN html_file_name TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN rtfd_file_name TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN file_path TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN file_name TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN file_type TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN file_bookmark_name TEXT")
+                    try execute("ALTER TABLE history_entries ADD COLUMN file_copy_name TEXT")
+                    try execute("PRAGMA user_version = 2")
+                }
             }
         } catch {
             close()
@@ -88,7 +108,9 @@ final class ClipboardHistoryDatabase {
         let statement = try prepare("""
             SELECT id, kind, digest, first_copied_at, last_copied_at, copy_count,
                    image_file_name, image_pasteboard_type, byte_count,
-                   source_app_name, source_app_bundle_id
+                   source_app_name, source_app_bundle_id,
+                   rtf_file_name, html_file_name, rtfd_file_name,
+                   file_path, file_name, file_type, file_bookmark_name, file_copy_name
             FROM history_entries ORDER BY last_copied_at DESC
             """)
         defer { sqlite3_finalize(statement) }
@@ -109,11 +131,11 @@ final class ClipboardHistoryDatabase {
             let lastCopiedAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
             let copyCount = sqlite3_column_type(statement, 5) == SQLITE_NULL
                 ? nil : Int(sqlite3_column_int64(statement, 5))
-            let text = kind == .image ? nil : try? String(
+            let text = kind == .image || kind == .fileReference ? nil : try? String(
                 contentsOf: contentDirectory.appendingPathComponent("\(id.uuidString).txt"),
                 encoding: .utf8
             )
-            result.append(ClipboardEntry(
+            var entry = ClipboardEntry(
                 id: id,
                 createdAt: lastCopiedAt,
                 firstCopiedAt: firstCopiedAt,
@@ -126,7 +148,16 @@ final class ClipboardHistoryDatabase {
                 byteCount: Int(sqlite3_column_int64(statement, 8)),
                 sourceAppName: string(statement, column: 9),
                 sourceAppBundleID: string(statement, column: 10)
-            ))
+            )
+            entry.rtfFileName = string(statement, column: 11)
+            entry.htmlFileName = string(statement, column: 12)
+            entry.rtfdFileName = string(statement, column: 13)
+            entry.filePath = string(statement, column: 14)
+            entry.fileName = string(statement, column: 15)
+            entry.fileType = string(statement, column: 16)
+            entry.fileBookmarkName = string(statement, column: 17)
+            entry.fileCopyName = string(statement, column: 18)
+            result.append(entry)
         }
         return result
     }
@@ -136,8 +167,10 @@ final class ClipboardHistoryDatabase {
             INSERT INTO history_entries (
                 id, kind, digest, first_copied_at, last_copied_at, copy_count,
                 image_file_name, image_pasteboard_type, byte_count,
-                source_app_name, source_app_bundle_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source_app_name, source_app_bundle_id,
+                rtf_file_name, html_file_name, rtfd_file_name,
+                file_path, file_name, file_type, file_bookmark_name, file_copy_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 kind = excluded.kind,
                 digest = excluded.digest,
@@ -148,7 +181,15 @@ final class ClipboardHistoryDatabase {
                 image_pasteboard_type = excluded.image_pasteboard_type,
                 byte_count = excluded.byte_count,
                 source_app_name = excluded.source_app_name,
-                source_app_bundle_id = excluded.source_app_bundle_id
+                source_app_bundle_id = excluded.source_app_bundle_id,
+                rtf_file_name = excluded.rtf_file_name,
+                html_file_name = excluded.html_file_name,
+                rtfd_file_name = excluded.rtfd_file_name,
+                file_path = excluded.file_path,
+                file_name = excluded.file_name,
+                file_type = excluded.file_type,
+                file_bookmark_name = excluded.file_bookmark_name,
+                file_copy_name = excluded.file_copy_name
             """)
         defer { sqlite3_finalize(statement) }
         try bind(entry.id.uuidString, to: 1, in: statement)
@@ -162,6 +203,14 @@ final class ClipboardHistoryDatabase {
         try bind(Int64(entry.byteCount), to: 9, in: statement)
         try bind(entry.sourceAppName, to: 10, in: statement)
         try bind(entry.sourceAppBundleID, to: 11, in: statement)
+        try bind(entry.rtfFileName, to: 12, in: statement)
+        try bind(entry.htmlFileName, to: 13, in: statement)
+        try bind(entry.rtfdFileName, to: 14, in: statement)
+        try bind(entry.filePath, to: 15, in: statement)
+        try bind(entry.fileName, to: 16, in: statement)
+        try bind(entry.fileType, to: 17, in: statement)
+        try bind(entry.fileBookmarkName, to: 18, in: statement)
+        try bind(entry.fileCopyName, to: 19, in: statement)
         guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
     }
 

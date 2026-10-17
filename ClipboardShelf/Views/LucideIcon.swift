@@ -7,6 +7,7 @@ enum LucideSymbol: String, CaseIterable {
     case clipboard
     case clipboardClock = "clipboard-clock"
     case copy
+    case file
     case history
     case image
     case keyboard
@@ -30,6 +31,7 @@ extension ClipboardEntry.Kind {
         case .text: .alignLeft
         case .link: .link
         case .image: .image
+        case .fileReference: .file
         }
     }
 }

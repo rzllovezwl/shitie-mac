@@ -5,6 +5,7 @@ struct ClipboardEntry: Identifiable, Equatable {
         case text
         case link
         case image
+        case fileReference
     }
 
     let id: UUID
@@ -20,11 +21,25 @@ struct ClipboardEntry: Identifiable, Equatable {
     let byteCount: Int
     var sourceAppName: String?
     var sourceAppBundleID: String?
+    var rtfFileName: String? = nil
+    var htmlFileName: String? = nil
+    var rtfdFileName: String? = nil
+    var filePath: String? = nil
+    var fileName: String? = nil
+    var fileType: String? = nil
+    var fileBookmarkName: String? = nil
+    var fileCopyName: String? = nil
+
+    var hasRichText: Bool {
+        rtfFileName != nil || htmlFileName != nil || rtfdFileName != nil
+    }
 
     var title: String {
         switch kind {
         case .image:
             return "图片"
+        case .fileReference:
+            return fileName ?? "文件"
         case .link:
             return URL(string: text ?? "")?.host ?? "链接"
         case .text:

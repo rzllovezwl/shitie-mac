@@ -50,6 +50,8 @@ struct ClipboardShelfApp: App {
             Image(LucideSymbol.clipboard.assetName)
                 .renderingMode(.template)
                 .resizable()
+                .scaledToFit()
+                .frame(width: 14, height: 14)
                 .frame(width: 18, height: 18)
                 .accessibilityLabel("ClipHoook")
         }

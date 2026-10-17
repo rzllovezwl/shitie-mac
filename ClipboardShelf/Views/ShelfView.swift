@@ -65,7 +65,12 @@ struct ShelfView: View {
                     ClipboardDetailView(
                         entry: entry,
                         imageURL: model.imageURL(for: entry),
+                        thumbnailURL: model.thumbnailURL(for: entry),
+                        fileHasSavedCopy: model.fileHasSavedCopy(entry),
+                        savedCopyName: model.savedCopyDisplayName(for: entry),
+                        fileReferenceAvailable: model.fileReferenceIsAvailable(entry),
                         onCopy: { model.copy(entry) },
+                        onSaveFileCopy: { model.saveFileCopy(entry) },
                         onDelete: { model.confirmDelete(entry) },
                         onClose: { closeDetail() }
                     )
@@ -273,6 +278,7 @@ struct ShelfView: View {
             ClipboardCardView(
                 entry: entry,
                 imageURL: model.imageURL(for: entry),
+                thumbnailURL: model.thumbnailURL(for: entry),
                 cardSize: cardSize,
                 isSelected: selectedID == entry.id,
                 onSelect: { select(entry) },

@@ -142,7 +142,9 @@ final class AppController: ObservableObject {
 
     func copy(_ entry: ClipboardEntry) {
         guard writeToPasteboard(entry) else {
-            statusMessage = "复制失败，原始内容可能已不可用。"
+            statusMessage = entry.kind == .fileReference
+                ? "原文件和保存的副本都不可用；请重新选择文件。"
+                : "复制失败，原始内容可能已不可用。"
             return
         }
         statusMessage = "已复制到剪贴板"
@@ -151,7 +153,9 @@ final class AppController: ObservableObject {
 
     func paste(_ entry: ClipboardEntry) {
         guard writeToPasteboard(entry) else {
-            statusMessage = "粘贴失败，原始内容可能已不可用。"
+            statusMessage = entry.kind == .fileReference
+                ? "原文件和保存的副本都不可用；请重新选择文件。"
+                : "粘贴失败，原始内容可能已不可用。"
             return
         }
         switch PasteService.availability(requestPermission: true) {
@@ -204,7 +208,7 @@ final class AppController: ObservableObject {
     func confirmClearHistory() {
         let alert = NSAlert()
         alert.messageText = "清空剪贴板历史？"
-        alert.informativeText = "这会删除本机保存的所有历史记录和图片，无法撤销。"
+        alert.informativeText = "这会删除本机保存的历史记录、图片、富文本和文件副本，无法撤销；不会删除原文件或清空系统剪贴板。"
         alert.addButton(withTitle: "清空")
         alert.addButton(withTitle: "取消")
         alert.alertStyle = .warning
@@ -225,7 +229,7 @@ final class AppController: ObservableObject {
     func confirmDelete(_ entry: ClipboardEntry) {
         let alert = NSAlert()
         alert.messageText = "删除这条历史记录？"
-        alert.informativeText = "只删除本机保存的这条记录，不会清空当前系统剪贴板。"
+        alert.informativeText = "只删除本机保存的这条记录及其副本，不会删除原文件或清空当前系统剪贴板。"
         alert.addButton(withTitle: "删除")
         alert.addButton(withTitle: "取消")
         alert.alertStyle = .warning
@@ -308,6 +312,50 @@ final class AppController: ObservableObject {
         store.imageURL(for: entry)
     }
 
+    func thumbnailURL(for entry: ClipboardEntry) -> URL? {
+        store.thumbnailURL(for: entry)
+    }
+
+    func fileHasSavedCopy(_ entry: ClipboardEntry) -> Bool {
+        store.fileHasSavedCopy(entry)
+    }
+
+    func savedCopyDisplayName(for entry: ClipboardEntry) -> String? {
+        store.savedCopyDisplayName(for: entry)
+    }
+
+    func fileReferenceIsAvailable(_ entry: ClipboardEntry) -> Bool {
+        store.fileReferenceIsAvailable(entry)
+    }
+
+    func saveFileCopy(_ entry: ClipboardEntry) {
+        guard entry.kind == .fileReference else { return }
+        var replacement: URL?
+        if !store.originalFileIsAvailable(entry) {
+            let picker = NSOpenPanel()
+            picker.message = "原文件不可用。请选择要保存副本的原文件。"
+            picker.canChooseDirectories = false
+            picker.allowsMultipleSelection = false
+            guard picker.runModal() == .OK, let selected = picker.url else { return }
+            replacement = selected
+        }
+        Task { @MainActor [self] in
+            do {
+                try await store.saveFileCopy(for: entry, using: replacement)
+                entries = store.entries
+                refreshStorageSizes()
+                statusMessage = "文件副本已保存；以后原文件移动也可使用副本。"
+                if let updated = entries.first(where: { $0.id == entry.id }) {
+                    store.requestThumbnail(for: updated) { [weak self] in
+                        self?.entries = self?.store.entries ?? []
+                    }
+                }
+            } catch {
+                statusMessage = "保存文件副本失败：\(error.localizedDescription)"
+            }
+        }
+    }
+
     private func retryHotKeyIfNeeded() {
         guard !hotKeyRegistered, Date().timeIntervalSince(lastHotKeyAttempt) >= 5 else { return }
         lastHotKeyAttempt = .now
@@ -382,14 +430,45 @@ final class AppController: ObservableObject {
 
         do {
             let added: Bool
-            if let image = item.data(forType: .png) {
+            let fileURLs = (board.readObjects(
+                forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+            ) ?? []).compactMap { $0 as? URL }.filter(\.isFileURL)
+            if !fileURLs.isEmpty {
+                var anyAdded = false
+                for url in fileURLs {
+                    if try store.addFileReference(url, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID) {
+                        anyAdded = true
+                    }
+                }
+                added = anyAdded
+                for entry in store.entries where entry.kind == .fileReference
+                    && fileURLs.contains(where: { $0.standardizedFileURL.path == entry.filePath }) {
+                    store.requestThumbnail(for: entry) { [weak self] in
+                        self?.entries = self?.store.entries ?? []
+                        self?.refreshStorageSizes(force: false)
+                    }
+                }
+            } else if let image = item.data(forType: .png) {
                 added = try store.addImage(image, type: NSPasteboard.PasteboardType.png.rawValue, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
             } else if let image = item.data(forType: .tiff) {
                 added = try store.addImage(image, type: NSPasteboard.PasteboardType.tiff.rawValue, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
-            } else if let text = item.string(forType: .string) {
-                added = try store.addText(text, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
             } else {
-                return
+                let rtf = item.data(forType: .rtf)
+                let html = item.data(forType: .html)
+                let rtfd = item.data(forType: .rtfd)
+                let text = item.string(forType: .string)
+                    ?? plainText(from: rtf, type: .rtf)
+                    ?? plainText(from: html, type: .html)
+                    ?? plainText(from: rtfd, type: .rtfd)
+                guard let text else { return }
+                if rtf != nil || html != nil || rtfd != nil {
+                    added = try store.addRichText(
+                        text, rtf: rtf, html: html, rtfd: rtfd,
+                        sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID
+                    )
+                } else {
+                    added = try store.addText(text, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID)
+                }
             }
             if added {
                 entries = store.entries
@@ -401,6 +480,13 @@ final class AppController: ObservableObject {
             refreshStorageSizes(force: false)
             statusMessage = "保存剪贴板内容失败：\(error.localizedDescription)"
         }
+    }
+
+    private func plainText(from data: Data?, type: NSAttributedString.DocumentType) -> String? {
+        guard let data, data.count <= store.maximumRichTextBytes else { return nil }
+        return try? NSAttributedString(
+            data: data, options: [.documentType: type], documentAttributes: nil
+        ).string
     }
 
     private func refreshStorageSizes(force: Bool = true) {
@@ -417,21 +503,9 @@ final class AppController: ObservableObject {
 
     private func writeToPasteboard(_ entry: ClipboardEntry) -> Bool {
         let board = NSPasteboard.general
-        let succeeded: Bool
-        switch entry.kind {
-        case .text, .link:
-            guard let text = entry.text else { return false }
-            board.clearContents()
-            succeeded = board.setString(text, forType: .string)
-        case .image:
-            guard let url = store.imageURL(for: entry), let data = try? Data(contentsOf: url) else { return false }
-            let item = NSPasteboardItem()
-            item.setData(data, forType: NSPasteboard.PasteboardType(entry.imagePasteboardType ?? "public.png"))
-            board.clearContents()
-            succeeded = board.writeObjects([item])
-        }
-        clipboardChanges.markOwnWrite(changeCount: board.changeCount)
+        let succeeded = ClipboardPasteboardWriter.write(entry, from: store, to: board)
         if succeeded {
+            clipboardChanges.markOwnWrite(changeCount: board.changeCount)
             CopySoundPlayer.shared.playIfEnabled()
         }
         return succeeded

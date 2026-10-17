@@ -1,8 +1,12 @@
 import CryptoKit
 import Foundation
+import QuickLookThumbnailing
+import UniformTypeIdentifiers
+import AppKit
 
 enum ClipboardHistoryStoreError: LocalizedError {
     case unavailable, invalidLegacyRecord, migrationVerificationFailed, legacyWriterDetected, invalidSavedRecord
+    case fileReferenceUnavailable, fileCopyExceedsLimit, unsupportedFile
 
     var errorDescription: String? {
         switch self {
@@ -11,6 +15,9 @@ enum ClipboardHistoryStoreError: LocalizedError {
         case .migrationVerificationFailed: "历史记录迁移校验失败，旧记录未被修改。"
         case .legacyWriterDetected: "检测到旧版仍在写入 history.json；请先退出旧版，避免两份历史分叉。"
         case .invalidSavedRecord: "已保存记录的内容位置无效。"
+        case .fileReferenceUnavailable: "原文件已移动、删除或无法访问；请重新选择文件。"
+        case .fileCopyExceedsLimit: "文件副本超过设置的最大存储量；请调整上限后重试。"
+        case .unsupportedFile: "目前只能保存普通文件的副本，不能保存文件夹或符号链接。"
         }
     }
 }
@@ -44,6 +51,10 @@ final class ClipboardHistoryStore {
     private let directory: URL
     private let imagesDirectory: URL
     private let contentDirectory: URL
+    private let richTextDirectory: URL
+    private let bookmarksDirectory: URL
+    private let fileCopiesDirectory: URL
+    private let thumbnailsDirectory: URL
     private let databaseURL: URL
     private let legacyIndexURL: URL
     private let migrationBackupURL: URL
@@ -57,6 +68,7 @@ final class ClipboardHistoryStore {
     private(set) var errorMessage: String?
     let maximumImageBytes = 15 * 1_024 * 1_024
     let maximumTextBytes = 1 * 1_024 * 1_024
+    let maximumRichTextBytes = 15 * 1_024 * 1_024
 
     init(
         directory overrideDirectory: URL? = nil,
@@ -71,6 +83,10 @@ final class ClipboardHistoryStore {
         directory = overrideDirectory ?? support.appendingPathComponent("ClipboardShelf", isDirectory: true)
         imagesDirectory = directory.appendingPathComponent("Images", isDirectory: true)
         contentDirectory = directory.appendingPathComponent("Content", isDirectory: true)
+        richTextDirectory = directory.appendingPathComponent("RichText", isDirectory: true)
+        bookmarksDirectory = directory.appendingPathComponent("Bookmarks", isDirectory: true)
+        fileCopiesDirectory = directory.appendingPathComponent("FileCopies", isDirectory: true)
+        thumbnailsDirectory = directory.appendingPathComponent("Thumbnails", isDirectory: true)
         databaseURL = directory.appendingPathComponent("history.sqlite")
         legacyIndexURL = directory.appendingPathComponent("history.json")
         migrationBackupURL = directory.appendingPathComponent("LegacyMigrationBackup", isDirectory: true)
@@ -78,6 +94,10 @@ final class ClipboardHistoryStore {
         do {
             try fileManager.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: contentDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: richTextDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: bookmarksDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: fileCopiesDirectory, withIntermediateDirectories: true)
+            try fileManager.createDirectory(at: thumbnailsDirectory, withIntermediateDirectories: true)
             if !fileManager.fileExists(atPath: databaseURL.path),
                fileManager.fileExists(atPath: legacyIndexURL.path) {
                 try migrateLegacyHistory()
@@ -102,6 +122,8 @@ final class ClipboardHistoryStore {
 
     var activeStorageBytes: Int64 {
         diskBytes(at: databaseURL) + diskBytes(in: contentDirectory) + diskBytes(in: imagesDirectory)
+            + diskBytes(in: richTextDirectory) + diskBytes(in: bookmarksDirectory)
+            + diskBytes(in: fileCopiesDirectory) + diskBytes(in: thumbnailsDirectory)
     }
 
     var migrationBackupBytes: Int64 { diskBytes(in: migrationBackupURL) }
@@ -111,6 +133,80 @@ final class ClipboardHistoryStore {
         guard let name = entry.imageFileName, safeFileName(name) else { return nil }
         let url = imagesDirectory.appendingPathComponent(name)
         return fileManager.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func thumbnailURL(for entry: ClipboardEntry) -> URL? {
+        guard entry.kind == .fileReference else { return nil }
+        let url = thumbnailsDirectory.appendingPathComponent("\(entry.id.uuidString).png")
+        return fileManager.fileExists(atPath: url.path) ? url : nil
+    }
+
+    func fileHasSavedCopy(_ entry: ClipboardEntry) -> Bool {
+        savedCopyURL(for: entry) != nil
+    }
+
+    func savedCopyDisplayName(for entry: ClipboardEntry) -> String? {
+        guard let name = entry.fileCopyName, savedCopyURL(for: entry) != nil else { return nil }
+        return String(name.dropFirst(37))
+    }
+
+    func fileReferenceIsAvailable(_ entry: ClipboardEntry) -> Bool {
+        withUsableFileURL(for: entry) { (try? $0.checkResourceIsReachable()) == true } ?? false
+    }
+
+    func originalFileIsAvailable(_ entry: ClipboardEntry) -> Bool {
+        guard let url = resolvedOriginalURL(for: entry) else { return false }
+        let started = url.startAccessingSecurityScopedResource()
+        defer { if started { url.stopAccessingSecurityScopedResource() } }
+        return (try? url.checkResourceIsReachable()) == true && fileManager.isReadableFile(atPath: url.path)
+    }
+
+    func withUsableFileURL<T>(for entry: ClipboardEntry, _ work: (URL) -> T) -> T? {
+        guard entry.kind == .fileReference else { return nil }
+        if let copy = savedCopyURL(for: entry) { return work(copy) }
+        guard let original = resolvedOriginalURL(for: entry) else { return nil }
+        let started = original.startAccessingSecurityScopedResource()
+        defer { if started { original.stopAccessingSecurityScopedResource() } }
+        guard (try? original.checkResourceIsReachable()) == true,
+              fileManager.isReadableFile(atPath: original.path) else { return nil }
+        return work(original)
+    }
+
+    func richTextData(for entry: ClipboardEntry) -> (rtf: Data?, html: Data?, rtfd: Data?) {
+        func read(_ name: String?) -> Data? {
+            guard let name, safeFileName(name) else { return nil }
+            return try? Data(contentsOf: richTextDirectory.appendingPathComponent(name))
+        }
+        return (read(entry.rtfFileName), read(entry.htmlFileName), read(entry.rtfdFileName))
+    }
+
+    func requestThumbnail(for entry: ClipboardEntry, completion: @escaping () -> Void) {
+        guard entry.kind == .fileReference,
+              entries.contains(where: { $0.id == entry.id }),
+              thumbnailURL(for: entry) == nil else { return }
+        let url = savedCopyURL(for: entry) ?? resolvedOriginalURL(for: entry)
+        guard let url else { return }
+        let started = url.startAccessingSecurityScopedResource()
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url, size: CGSize(width: 320, height: 240), scale: 2,
+            representationTypes: .thumbnail
+        )
+        let output = thumbnailsDirectory.appendingPathComponent("\(entry.id.uuidString).png")
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+            if started { url.stopAccessingSecurityScopedResource() }
+            Task { @MainActor in
+                if self.entries.contains(where: { $0.id == entry.id }),
+                   (self.savedCopyURL(for: entry) ?? self.resolvedOriginalURL(for: entry))?.path == url.path,
+                   let image = representation?.nsImage,
+                   let tiff = image.tiffRepresentation,
+                   let bitmap = NSBitmapImageRep(data: tiff),
+                   let png = bitmap.representation(using: .png, properties: [:]) {
+                    try? png.write(to: output, options: .atomic)
+                    _ = try? self.pruneEntries()
+                }
+                completion()
+            }
+        }
     }
 
     func addText(_ text: String, sourceAppName: String?, sourceAppBundleID: String? = nil) throws -> Bool {
@@ -177,6 +273,158 @@ final class ClipboardHistoryStore {
         insertNewestFirst(entry)
         _ = try pruneEntries()
         return true
+    }
+
+    func addRichText(
+        _ text: String, rtf: Data?, html: Data?, rtfd: Data?,
+        sourceAppName: String?, sourceAppBundleID: String? = nil
+    ) throws -> Bool {
+        guard !text.isEmpty else { return false }
+        let textData = Data(text.utf8)
+        guard textData.count <= maximumTextBytes else { return false }
+        let formats = [rtf, html, rtfd]
+        guard formats.contains(where: { $0 != nil }),
+              formats.reduce(0, { $0 + ($1?.count ?? 0) }) <= maximumRichTextBytes else {
+            return try addText(text, sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID)
+        }
+        _ = try requiredDatabase()
+        var signature = Data("rich-text\0".utf8)
+        for (label, data) in zip(["plain", "rtf", "html", "rtfd"], [textData, rtf, html, rtfd]) {
+            signature.append(contentsOf: label.utf8)
+            signature.append(0)
+            if let data {
+                var length = UInt64(data.count).bigEndian
+                withUnsafeBytes(of: &length) { signature.append(contentsOf: $0) }
+                signature.append(data)
+            } else {
+                signature.append(contentsOf: Array(repeating: 0, count: 8))
+            }
+        }
+        let kind: ClipboardEntry.Kind = Self.isWebLink(text) ? .link : .text
+        let digest = Self.digest(data: signature, prefix: "rich")
+        if let old = entries.first(where: { $0.digest == digest }) {
+            let oldText = textURL(for: old.id)
+            if !fileManager.fileExists(atPath: oldText.path) { try textData.write(to: oldText, options: .atomic) }
+            for (name, data) in [(old.rtfFileName, rtf), (old.htmlFileName, html), (old.rtfdFileName, rtfd)] {
+                guard let name, safeFileName(name), let data else { continue }
+                let url = richTextDirectory.appendingPathComponent(name)
+                if !fileManager.fileExists(atPath: url.path) { try data.write(to: url, options: .atomic) }
+            }
+            _ = try refreshExisting(digest: digest, sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID)
+            _ = try pruneEntries()
+            return true
+        }
+        let id = UUID()
+        let date = now()
+        var entry = ClipboardEntry(
+            id: id, createdAt: date, firstCopiedAt: date, copyCount: 1,
+            kind: kind, text: text, imageFileName: nil, imagePasteboardType: nil,
+            digest: digest, byteCount: textData.count + formats.reduce(0, { $0 + ($1?.count ?? 0) }),
+            sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID
+        )
+        entry.rtfFileName = rtf.map { _ in "\(id.uuidString).rtf" }
+        entry.htmlFileName = html.map { _ in "\(id.uuidString).html" }
+        entry.rtfdFileName = rtfd.map { _ in "\(id.uuidString).rtfd" }
+        let files: [(URL, Data)] = [(textURL(for: id), textData)] +
+            [(entry.rtfFileName, rtf), (entry.htmlFileName, html), (entry.rtfdFileName, rtfd)]
+                .compactMap { name, data in
+                    guard let name, let data else { return nil }
+                    return (richTextDirectory.appendingPathComponent(name), data)
+                }
+        do {
+            for (url, data) in files { try data.write(to: url, options: .atomic) }
+            try requiredDatabase().upsert(entry)
+        } catch {
+            for (url, _) in files { try? fileManager.removeItem(at: url) }
+            throw error
+        }
+        insertNewestFirst(entry)
+        _ = try pruneEntries()
+        return true
+    }
+
+    func addFileReference(
+        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String? = nil
+    ) throws -> Bool {
+        guard fileURL.isFileURL else { return false }
+        _ = try requiredDatabase()
+        let normalized = fileURL.standardizedFileURL
+        let digest = Self.digest(data: Data(normalized.path.utf8), prefix: "file-reference")
+        if try refreshExisting(digest: digest, sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID) {
+            _ = try pruneEntries()
+            return true
+        }
+        let id = UUID()
+        let date = now()
+        let values = try? normalized.resourceValues(forKeys: [.fileSizeKey])
+        var entry = ClipboardEntry(
+            id: id, createdAt: date, firstCopiedAt: date, copyCount: 1,
+            kind: .fileReference, text: nil, imageFileName: nil, imagePasteboardType: nil,
+            digest: digest, byteCount: values?.fileSize ?? 0,
+            sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID
+        )
+        entry.filePath = normalized.path
+        entry.fileName = normalized.lastPathComponent
+        entry.fileType = UTType(filenameExtension: normalized.pathExtension)?.identifier
+        if let bookmark = makeFileBookmark(for: normalized) {
+            let name = "\(id.uuidString).bookmark"
+            try bookmark.write(to: bookmarksDirectory.appendingPathComponent(name), options: .atomic)
+            entry.fileBookmarkName = name
+        }
+        do { try requiredDatabase().upsert(entry) }
+        catch {
+            if let name = entry.fileBookmarkName {
+                try? fileManager.removeItem(at: bookmarksDirectory.appendingPathComponent(name))
+            }
+            throw error
+        }
+        insertNewestFirst(entry)
+        _ = try pruneEntries()
+        return true
+    }
+
+    func saveFileCopy(for entry: ClipboardEntry, using replacement: URL? = nil) async throws {
+        guard entries.contains(where: { $0.id == entry.id }),
+              entry.kind == .fileReference else { throw ClipboardHistoryStoreError.invalidSavedRecord }
+        let source = replacement ?? resolvedOriginalURL(for: entry)
+        guard let source else { throw ClipboardHistoryStoreError.fileReferenceUnavailable }
+        let started = source.startAccessingSecurityScopedResource()
+        defer { if started { source.stopAccessingSecurityScopedResource() } }
+        let values = try source.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+        guard values.isRegularFile == true, values.isSymbolicLink != true else {
+            throw ClipboardHistoryStoreError.unsupportedFile
+        }
+        guard fileManager.isReadableFile(atPath: source.path) else {
+            throw ClipboardHistoryStoreError.fileReferenceUnavailable
+        }
+        if let maximum = HistoryStoragePolicy(defaults: defaults).maximumBytes,
+           (values.fileSize ?? 0) > maximum {
+            throw ClipboardHistoryStoreError.fileCopyExceedsLimit
+        }
+        let copyFolder = fileCopiesDirectory.appendingPathComponent(entry.id.uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: copyFolder, withIntermediateDirectories: true)
+        let name = "\(UUID().uuidString)-\(source.lastPathComponent)"
+        let destination = copyFolder.appendingPathComponent(name)
+        try await Task.detached(priority: .utility) {
+            try FileManager.default.copyItem(at: source, to: destination)
+        }.value
+        guard let currentIndex = entries.firstIndex(where: { $0.id == entry.id }) else {
+            try? fileManager.removeItem(at: destination)
+            throw ClipboardHistoryStoreError.invalidSavedRecord
+        }
+        var updated = entries[currentIndex]
+        let oldCopy = savedCopyURL(for: updated)
+        updated.fileCopyName = name
+        do { try requiredDatabase().upsert(updated) }
+        catch {
+            try? fileManager.removeItem(at: destination)
+            throw error
+        }
+        entries[currentIndex] = updated
+        if let oldCopy, oldCopy != destination { try? fileManager.removeItem(at: oldCopy) }
+        let thumbnail = thumbnailsDirectory.appendingPathComponent("\(entry.id.uuidString).png")
+        try? fileManager.removeItem(at: thumbnail)
+        _ = try pruneEntries()
     }
 
     @discardableResult func applyStoragePolicy() throws -> Bool { try pruneEntries() }
@@ -259,30 +507,98 @@ final class ClipboardHistoryStore {
         contentDirectory.appendingPathComponent("\(id.uuidString).txt")
     }
 
+    private func savedCopyURL(for entry: ClipboardEntry) -> URL? {
+        guard let name = entry.fileCopyName, safeFileName(name) else { return nil }
+        let url = fileCopiesDirectory.appendingPathComponent(entry.id.uuidString, isDirectory: true)
+            .appendingPathComponent(name)
+        return fileManager.fileExists(atPath: url.path) && fileManager.isReadableFile(atPath: url.path)
+            ? url : nil
+    }
+
+    private func resolvedOriginalURL(for entry: ClipboardEntry) -> URL? {
+        if let name = entry.fileBookmarkName, safeFileName(name),
+           let data = try? Data(contentsOf: bookmarksDirectory.appendingPathComponent(name)) {
+            var stale = false
+            if let url = try? URL(
+                resolvingBookmarkData: data, options: [.withSecurityScope],
+                relativeTo: nil, bookmarkDataIsStale: &stale
+            ), url.isFileURL { return url }
+            if let url = try? URL(
+                resolvingBookmarkData: data, options: [],
+                relativeTo: nil, bookmarkDataIsStale: &stale
+            ), url.isFileURL { return url }
+        }
+        guard let path = entry.filePath, path.hasPrefix("/") else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    private func makeFileBookmark(for url: URL) -> Data? {
+        if let scoped = try? url.bookmarkData(
+            options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil
+        ) { return scoped }
+        return try? url.bookmarkData(
+            options: [], includingResourceValuesForKeys: nil, relativeTo: nil
+        )
+    }
+
     private func removePayload(for entry: ClipboardEntry) throws {
         if entry.kind == .image {
             if let url = imageURL(for: entry) { try fileManager.removeItem(at: url) }
-        } else {
+        } else if entry.kind != .fileReference {
             let url = textURL(for: entry.id)
             if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }
         }
+        for name in [entry.rtfFileName, entry.htmlFileName, entry.rtfdFileName] {
+            guard let name, safeFileName(name) else { continue }
+            let url = richTextDirectory.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }
+        }
+        if let name = entry.fileBookmarkName, safeFileName(name) {
+            let url = bookmarksDirectory.appendingPathComponent(name)
+            if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }
+        }
+        let copyFolder = fileCopiesDirectory.appendingPathComponent(entry.id.uuidString, isDirectory: true)
+        if fileManager.fileExists(atPath: copyFolder.path) { try fileManager.removeItem(at: copyFolder) }
+        let thumbnail = thumbnailsDirectory.appendingPathComponent("\(entry.id.uuidString).png")
+        if fileManager.fileExists(atPath: thumbnail.path) { try fileManager.removeItem(at: thumbnail) }
     }
 
     private func moveUnreferencedPayloadsToRecovery() throws {
-        let textNames = Set(entries.filter { $0.kind != .image }.map { "\($0.id.uuidString).txt" })
+        let textNames = Set(entries.filter { $0.kind != .image && $0.kind != .fileReference }
+            .map { "\($0.id.uuidString).txt" })
         let imageNames = Set(entries.compactMap(\.imageFileName))
-        for (folder, names) in [(contentDirectory, textNames), (imagesDirectory, imageNames)] {
+        let richNames = Set(entries.flatMap { [$0.rtfFileName, $0.htmlFileName, $0.rtfdFileName].compactMap { $0 } })
+        let bookmarkNames = Set(entries.compactMap(\.fileBookmarkName))
+        let thumbnailNames = Set(entries.filter { $0.kind == .fileReference }.map { "\($0.id.uuidString).png" })
+        let copyFolderNames = Set(entries.filter { $0.fileCopyName != nil }.map { $0.id.uuidString })
+        for (folder, names) in [
+            (contentDirectory, textNames), (imagesDirectory, imageNames),
+            (richTextDirectory, richNames), (bookmarksDirectory, bookmarkNames),
+            (thumbnailsDirectory, thumbnailNames), (fileCopiesDirectory, copyFolderNames)
+        ] {
             for url in try fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
             where !names.contains(url.lastPathComponent) {
-                let destinationFolder = recoveryDirectory.appendingPathComponent(folder.lastPathComponent, isDirectory: true)
-                try fileManager.createDirectory(at: destinationFolder, withIntermediateDirectories: true)
-                var destination = destinationFolder.appendingPathComponent(url.lastPathComponent)
-                if fileManager.fileExists(atPath: destination.path) {
-                    destination = destinationFolder.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")
-                }
-                try fileManager.moveItem(at: url, to: destination)
+                try moveToRecovery(url, in: folder.lastPathComponent)
             }
         }
+        for entry in entries where entry.kind == .fileReference && entry.fileCopyName != nil {
+            let folder = fileCopiesDirectory.appendingPathComponent(entry.id.uuidString, isDirectory: true)
+            guard fileManager.fileExists(atPath: folder.path) else { continue }
+            for url in try fileManager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+            where url.lastPathComponent != entry.fileCopyName {
+                try moveToRecovery(url, in: "FileCopies/\(entry.id.uuidString)")
+            }
+        }
+    }
+
+    private func moveToRecovery(_ url: URL, in relativeFolder: String) throws {
+        let destinationFolder = recoveryDirectory.appendingPathComponent(relativeFolder, isDirectory: true)
+        try fileManager.createDirectory(at: destinationFolder, withIntermediateDirectories: true)
+        var destination = destinationFolder.appendingPathComponent(url.lastPathComponent)
+        if fileManager.fileExists(atPath: destination.path) {
+            destination = destinationFolder.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")
+        }
+        try fileManager.moveItem(at: url, to: destination)
     }
 
     private func migrateLegacyHistory() throws {

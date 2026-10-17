@@ -4,6 +4,7 @@ import SwiftUI
 struct ClipboardCardView: View {
     let entry: ClipboardEntry
     let imageURL: URL?
+    let thumbnailURL: URL?
     let cardSize: CGSize
     let isSelected: Bool
     let onSelect: () -> Void
@@ -19,7 +20,8 @@ struct ClipboardCardView: View {
         VStack(alignment: .leading, spacing: 10 * textScale) {
             HStack(spacing: 6) {
                 LucideIcon(entry.kind.lucideSymbol, size: 11 * textScale)
-                Text(entry.kind == .image ? "图片" : entry.kind == .link ? "链接" : "文本")
+                Text(entry.kind == .image ? "图片" : entry.kind == .fileReference ? "文件位置" :
+                     entry.hasRichText ? "富文本" : entry.kind == .link ? "链接" : "文本")
                 Spacer(minLength: 4)
                 Text(entry.createdAt, style: .relative)
                     .lineLimit(1)
@@ -39,6 +41,9 @@ struct ClipboardCardView: View {
                     Text("图片文件不可用")
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if entry.kind == .fileReference {
+                    FileReferencePreview(entry: entry, thumbnailURL: thumbnailURL)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Text(entry.text ?? "内容文件不可用")
                         .font(.system(size: 14 * textScale))
@@ -49,7 +54,12 @@ struct ClipboardCardView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            HStack {
+            HStack(spacing: 5) {
+                SourceAppIconView(
+                    bundleID: entry.sourceAppBundleID,
+                    name: entry.sourceAppName,
+                    size: 14 * textScale
+                )
                 Text(entry.sourceAppName ?? "未知来源")
                     .lineLimit(1)
                 Spacer()
