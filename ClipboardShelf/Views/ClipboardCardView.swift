@@ -91,6 +91,104 @@ struct ClipboardCardView: View {
     }
 }
 
+struct ClipboardListRowView: View {
+    let entry: ClipboardEntry
+    let thumbnailURL: URL?
+    let isSelected: Bool
+    let onSelect: () -> Void
+    let onPaste: () -> Void
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+
+    private var kindName: String {
+        switch entry.kind {
+        case .image: "图片"
+        case .fileReference: "文件位置"
+        case .link: "链接"
+        case .text: entry.hasRichText ? "富文本" : "文本"
+        }
+    }
+
+    private var summary: String {
+        switch entry.kind {
+        case .image: "图片记录，按空格查看预览"
+        case .fileReference: entry.fileType ?? "仅保存原文件位置"
+        case .text, .link:
+            // This is a display-only excerpt; the saved text stays byte-for-byte intact.
+            String((entry.text ?? "内容文件不可用").prefix(180))
+                .replacingOccurrences(of: "\n", with: " ↵ ")
+                .replacingOccurrences(of: "\t", with: " ⇥ ")
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(.primary.opacity(0.06))
+                if let thumbnailURL, let image = NSImage(contentsOf: thumbnailURL) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(4)
+                } else {
+                    LucideIcon(entry.kind.lucideSymbol, size: 21)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(entry.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .lineLimit(1)
+                    Text(kindName)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 6)
+                    Text(entry.createdAt, style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Text(summary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                HStack(spacing: 5) {
+                    SourceAppIconView(bundleID: entry.sourceAppBundleID, name: entry.sourceAppName, size: 12)
+                    Text(entry.sourceAppName ?? "未知来源")
+                        .lineLimit(1)
+                }
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 72)
+        .frame(maxWidth: .infinity)
+        .background(
+            isSelected ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.06),
+            in: RoundedRectangle(cornerRadius: 13)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 13)
+                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 2 : 1)
+        }
+        .overlay {
+            ImmediateCardInteraction(
+                onSelect: onSelect,
+                onPaste: onPaste,
+                onCopy: onCopy,
+                onDelete: onDelete
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(kindName)：\(entry.title)，来自\(entry.sourceAppName ?? "未知来源")，双击粘贴")
+    }
+}
+
 private struct ImmediateCardInteraction: NSViewRepresentable {
     let onSelect: () -> Void
     let onPaste: () -> Void

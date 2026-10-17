@@ -153,13 +153,12 @@ struct SettingsView: View {
                 Text("到期记录会自动删除；超过存储上限时，从最早的记录开始删除。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                LabeledContent("已保存", value: "\(model.entries.count) 条")
-                LabeledContent("实际占用", value: historySize)
+                historyStat("已保存", value: "\(model.entries.count) 条", help: .savedCount)
+                historyStat("实际占用", value: historySize, help: .activeStorage)
                 if model.migrationBackupBytes > 0 {
-                    LabeledContent(
-                        "旧历史备份",
-                        value: ByteCountFormatter.string(fromByteCount: model.migrationBackupBytes, countStyle: .file)
-                    )
+                    historyStat("旧历史备份", value: ByteCountFormatter.string(
+                        fromByteCount: model.migrationBackupBytes, countStyle: .file
+                    ), help: .oldBackup)
                     Text("迁移备份独立保存，不计入历史存储上限。确认新历史完整后可手动删除。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -168,10 +167,9 @@ struct SettingsView: View {
                     }
                 }
                 if model.recoveryBytes > 0 {
-                    LabeledContent(
-                        "未关联的恢复文件",
-                        value: ByteCountFormatter.string(fromByteCount: model.recoveryBytes, countStyle: .file)
-                    )
+                    historyStat("未关联的恢复文件", value: ByteCountFormatter.string(
+                        fromByteCount: model.recoveryBytes, countStyle: .file
+                    ), help: .recoveryFiles)
                     Text("这些文件未对应当前历史记录，已移到恢复目录，不计入当前历史上限。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -189,13 +187,13 @@ struct SettingsView: View {
 
             Section("快捷键与权限") {
                 LabeledContent("打开面板", value: "⌘⇧V")
-                LabeledContent("双击自动粘贴", value: pastePermissionStatus)
+                LabeledContent("自动粘贴", value: pastePermissionStatus)
                 Button {
                     model.openPastePermissionSettings()
                 } label: {
                     LucideLabel("打开键盘事件权限设置…", symbol: .keyboard)
                 }
-                Text("授权后，双击记录会收起面板并向原应用发送 ⌘V。未授权时仍可复制后手动粘贴。")
+                Text("授权后，双击记录或按 Return 会在核对原输入位置后发送 ⌘V。无法核对或未授权时会提示手动粘贴。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -247,6 +245,73 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showsReleaseHistory) {
             ReleaseHistoryView()
+        }
+    }
+
+    private func historyStat(_ title: String, value: String, help: HistoryStorageHelp) -> some View {
+        LabeledContent {
+            Text(value)
+        } label: {
+            HStack(spacing: 5) {
+                Text(title)
+                HistoryHelpButton(item: help)
+            }
+        }
+    }
+}
+
+private enum HistoryStorageHelp {
+    case savedCount, activeStorage, oldBackup, recoveryFiles
+
+    var title: String {
+        switch self {
+        case .savedCount: "已保存"
+        case .activeStorage: "实际占用"
+        case .oldBackup: "旧历史备份"
+        case .recoveryFiles: "未关联的恢复文件"
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .savedCount:
+            "当前能在面板里搜索和使用的历史记录数量。重复复制同一内容通常会合并成一条，并更新最近复制时间，所以它不是你总共按过多少次复制。"
+        case .activeStorage:
+            "当前历史记录和它们的文字、图片、富文本、缩略图、文件副本及数据库在本机占用的空间。只记录文件位置时，原文件本身不算在这里；旧历史备份和恢复文件也另算。"
+        case .oldBackup:
+            "升级历史存储方式时保留的旧数据，就像迁移前的保险副本。它不出现在面板里，也不计入当前历史的存储上限。确认旧记录已完整迁入后再删除；删除后不能靠这份备份回退。"
+        case .recoveryFiles:
+            "磁盘上还存在这些内容文件，但它们现在没有对应的历史卡片。应用先把它们移到恢复目录，避免误删。它们不能直接从面板使用，也不计入当前历史上限；删除后无法再手动找回其中的内容。"
+        }
+    }
+}
+
+private struct HistoryHelpButton: View {
+    let item: HistoryStorageHelp
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            LucideIcon(.circleHelp, size: 14)
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("了解\(item.title)")
+        .help("了解\(item.title)")
+        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(item.title)
+                    .font(.headline)
+                Text(item.explanation)
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .frame(width: 330, alignment: .leading)
         }
     }
 }

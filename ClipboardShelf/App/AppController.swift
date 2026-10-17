@@ -30,7 +30,7 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 final class AppController: ObservableObject {
     static let shared = AppController(store: ClipboardHistoryStore())
     private static let hotKeyConflictMessage = "⌘⇧V 注册失败，可能被其他应用占用；仍可从菜单栏打开。"
-    private static let pastePermissionMessage = "已复制；允许本应用发送键盘事件后，双击即可自动粘贴。现在可手动按 ⌘V。"
+    private static let pastePermissionMessage = "已复制，请手动按 ⌘V；允许键盘事件权限后可自动粘贴。"
 
     @Published private(set) var entries: [ClipboardEntry] = []
     @Published private(set) var statusMessage: String?
@@ -152,7 +152,19 @@ final class AppController: ObservableObject {
     }
 
     func paste(_ entry: ClipboardEntry) {
-        guard writeToPasteboard(entry) else {
+        paste(entry, mode: .original)
+    }
+
+    func pastePlainText(_ entry: ClipboardEntry) {
+        guard entry.kind == .text || entry.kind == .link else {
+            statusMessage = "这条记录没有纯文本；可按 Return 保留原格式粘贴。"
+            return
+        }
+        paste(entry, mode: .plainText)
+    }
+
+    private func paste(_ entry: ClipboardEntry, mode: ClipboardPasteboardWriter.Mode) {
+        guard writeToPasteboard(entry, mode: mode) else {
             statusMessage = entry.kind == .fileReference
                 ? "原文件和保存的副本都不可用；请重新选择文件。"
                 : "粘贴失败，原始内容可能已不可用。"
@@ -161,38 +173,69 @@ final class AppController: ObservableObject {
         switch PasteService.availability(requestPermission: true) {
         case .needsPermission:
             needsPastePermission = true
-            statusMessage = Self.pastePermissionMessage
-            panel.hide()
+            showManualPasteMessage(Self.pastePermissionMessage, target: panel.previousApplication)
         case .ready:
             needsPastePermission = false
             guard let target = panel.previousApplication, !target.isTerminated else {
-                statusMessage = "已复制；未找到原应用，请手动按 ⌘V。"
-                panel.hide()
+                showManualPasteMessage("已复制，请手动按 ⌘V；未找到原应用。", target: nil)
+                return
+            }
+            guard let originalFocus = panel.previousFocus,
+                  originalFocus.processIdentifier == target.processIdentifier else {
+                showManualPasteMessage("已复制，请手动按 ⌘V；无法核对原输入位置。", target: target)
                 return
             }
             panel.hide { [weak self] in
                 guard let self else { return }
                 guard target.activate(options: []) else {
-                    self.statusMessage = "已复制；无法切回原应用，请手动按 ⌘V。"
+                    self.statusMessage = "已复制，请手动按 ⌘V；无法切回原应用。"
                     return
                 }
                 Task { @MainActor in
                     let deadline = Date().addingTimeInterval(1.5)
                     while NSWorkspace.shared.frontmostApplication?.processIdentifier != target.processIdentifier {
                         guard Date() < deadline else {
-                            self.statusMessage = "已复制；原应用未回到前台，请手动按 ⌘V。"
+                            self.statusMessage = "已复制，请手动按 ⌘V；原应用未回到前台。"
                             return
                         }
                         try? await Task.sleep(nanoseconds: 50_000_000)
                     }
-                    try? await Task.sleep(nanoseconds: 120_000_000)
+                    // Activation may restore the previous editor a moment after
+                    // the process becomes frontmost. Do not paste into another field.
+                    while !originalFocus.stillMatches() {
+                        guard Date() < deadline,
+                              NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else {
+                            self.statusMessage = "已复制，请手动按 ⌘V；原输入位置已变化或无法核对。"
+                            return
+                        }
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                    }
                     guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else {
-                        self.statusMessage = "已复制；原应用焦点已变化，请手动按 ⌘V。"
+                        self.statusMessage = "已复制，请手动按 ⌘V；原应用焦点已变化。"
+                        return
+                    }
+                    guard originalFocus.stillMatches() else {
+                        self.statusMessage = "已复制，请手动按 ⌘V；原输入位置已变化。"
                         return
                     }
                     let sent = PasteService.sendPasteShortcut(to: target.processIdentifier)
-                    self.statusMessage = sent ? nil : "已复制；自动粘贴未发出，请手动按 ⌘V。"
+                    self.statusMessage = sent
+                        ? "已向原应用发送粘贴快捷键；目标应用是否接收无法确认。"
+                        : "已复制，请手动按 ⌘V；自动粘贴未发出。"
                 }
+            }
+        }
+    }
+
+    private func showManualPasteMessage(_ message: String, target: NSRunningApplication?) {
+        statusMessage = message
+        let presentationID = panelPresentationID
+        // Give the user a moment to read the fallback in the panel footer.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            guard panelPresentationID == presentationID, panel.isVisible else { return }
+            panel.hide {
+                if let target, !target.isTerminated { _ = target.activate(options: []) }
             }
         }
     }
@@ -501,9 +544,12 @@ final class AppController: ObservableObject {
         recoveryBytes = store.recoveryBytes
     }
 
-    private func writeToPasteboard(_ entry: ClipboardEntry) -> Bool {
+    private func writeToPasteboard(
+        _ entry: ClipboardEntry,
+        mode: ClipboardPasteboardWriter.Mode = .original
+    ) -> Bool {
         let board = NSPasteboard.general
-        let succeeded = ClipboardPasteboardWriter.write(entry, from: store, to: board)
+        let succeeded = ClipboardPasteboardWriter.write(entry, from: store, to: board, mode: mode)
         if succeeded {
             clipboardChanges.markOwnWrite(changeCount: board.changeCount)
             CopySoundPlayer.shared.playIfEnabled()

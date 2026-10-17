@@ -56,6 +56,10 @@ struct ShelfView: View {
                         .allowsHitTesting(false)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 28))
+                .background {
+                    ShelfKeyMonitor(onKeyDown: handlePanelKeyDown)
+                        .frame(width: 0, height: 0)
+                }
 
                 if let entry = detailEntry {
                     Color.black.opacity(0.18)
@@ -84,34 +88,28 @@ struct ShelfView: View {
                     .focusable()
                     .focused($focusedTarget, equals: .detail)
                     .focusEffectDisabled()
-                    .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow], action: handleKeyPress)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: searchText) { _, _ in
-            if selectedEntry == nil {
-                selectedID = nil
-                detailID = nil
-            }
+            selectedID = filteredEntries.first?.id
+            detailID = nil
         }
         .onChange(of: model.entries) { _, _ in
             if selectedEntry == nil {
-                selectedID = nil
+                selectedID = filteredEntries.first?.id
                 detailID = nil
             }
         }
         .onChange(of: model.panelPresentationID) { _, _ in
+            searchText = ""
             detailID = nil
-            if selectedEntry == nil {
-                selectedID = filteredEntries.first?.id
-            }
-            // Reassert focus after the panel becomes key, including on reopen.
+            selectedID = model.entries.first?.id
+            // The keyboard workflow starts in search on every opening.
             focusedTarget = nil
             Task { @MainActor in
-                if selectedID != nil {
-                    focusedTarget = .history
-                }
+                focusedTarget = .search
             }
         }
     }
@@ -223,48 +221,32 @@ struct ShelfView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { stripGeometry in
-                    let cardSize = PanelLayout.cardSize(
-                        in: stripGeometry.size,
-                        placement: PanelPlacement(rawValue: panelPlacement) ?? .bottom
-                    )
-
                     ScrollViewReader { scrollProxy in
-                        ScrollView(isVertical ? .vertical : .horizontal) {
-                            Group {
-                                if isVertical {
-                                    LazyVStack(spacing: 12) {
-                                        cardList(cardSize: cardSize)
-                                    }
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                } else {
-                                    LazyHStack(alignment: .top, spacing: 12) {
-                                        cardList(cardSize: cardSize)
-                                    }
-                                    .padding(.vertical, 4)
-                                    .padding(.horizontal, 2)
-                                }
+                        ScrollView(.vertical) {
+                            LazyVStack(spacing: 8) {
+                                historyRows
                             }
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 3)
                         }
                         .scrollIndicators(.hidden)
                         .focusable()
                         .focused($focusedTarget, equals: .history)
                         .focusEffectDisabled()
-                        .onKeyPress(keys: [.space, .leftArrow, .rightArrow, .upArrow, .downArrow], action: handleKeyPress)
                         .onChange(of: selectedID) { _, newID in
                             guard let newID else { return }
                             withAnimation(.easeOut(duration: 0.16)) {
-                                scrollProxy.scrollTo(newID)
+                                scrollProxy.scrollTo(newID, anchor: .center)
                             }
                         }
                         .onChange(of: model.panelPresentationID) { _, _ in
                             if let selectedID {
-                                scrollProxy.scrollTo(selectedID)
+                                scrollProxy.scrollTo(selectedID, anchor: .top)
                             }
                         }
                         .onChange(of: stripGeometry.size) { _, _ in
                             if let selectedID {
-                                scrollProxy.scrollTo(selectedID)
+                                scrollProxy.scrollTo(selectedID, anchor: .center)
                             }
                         }
                     }
@@ -273,13 +255,11 @@ struct ShelfView: View {
         }
     }
 
-    private func cardList(cardSize: CGSize) -> some View {
+    private var historyRows: some View {
         ForEach(filteredEntries) { entry in
-            ClipboardCardView(
+            ClipboardListRowView(
                 entry: entry,
-                imageURL: model.imageURL(for: entry),
                 thumbnailURL: model.thumbnailURL(for: entry),
-                cardSize: cardSize,
                 isSelected: selectedID == entry.id,
                 onSelect: { select(entry) },
                 onPaste: { model.paste(entry) },
@@ -296,10 +276,9 @@ struct ShelfView: View {
                 .frame(width: 6, height: 6)
             Text(model.statusMessage ?? (model.isPaused
                 ? "已暂停记录"
-                : isVertical
-                    ? "空格详情 · 方向键切换 · 双击粘贴"
-                    : "单击选中 · 空格查看详情 · ← → 切换 · 双击粘贴 · 右键复制"))
+                : "输入搜索 · ↑↓ 选择 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制 · 空格详情"))
                 .lineLimit(isVertical ? 2 : 1)
+                .foregroundStyle(model.statusMessage?.contains("请手动") == true ? Color.orange : Color.secondary)
             Spacer()
             Text("⌘⇧V")
                 .fontWeight(.medium)
@@ -317,42 +296,53 @@ struct ShelfView: View {
     private func closeDetail() {
         detailID = nil
         if selectedID != nil {
-            focusedTarget = .history
+            focusedTarget = .search
         }
     }
 
-    private func handleKeyPress(_ press: KeyPress) -> KeyPress.Result {
-        // macOS can tag arrow keys with implicit modifiers such as numericPad.
-        // Only user-held shortcut modifiers should prevent shelf navigation.
-        guard !press.modifiers.contains(.command),
-              !press.modifiers.contains(.control),
-              !press.modifiers.contains(.option),
-              !press.modifiers.contains(.shift) else { return .ignored }
-        switch press.key {
-        case .space:
+    private func handlePanelKeyDown(_ event: NSEvent) -> Bool {
+        guard let action = ShelfKeyboardAction.resolve(
+            keyCode: event.keyCode,
+            modifiers: event.modifierFlags,
+            searchFocused: focusedTarget == .search,
+            searchIsEmpty: searchText.isEmpty
+        ) else { return false }
+
+        switch action {
+        case .previous:
+            moveSelection(by: -1)
+        case .next:
+            moveSelection(by: 1)
+        case .paste:
+            guard let selectedEntry else { return true }
+            model.paste(selectedEntry)
+        case .pastePlainText:
+            guard let selectedEntry else { return true }
+            model.pastePlainText(selectedEntry)
+        case .copyOnly:
+            guard let selectedEntry else { return true }
+            model.copy(selectedEntry)
+        case .toggleDetail:
             if detailID == nil {
-                guard let entry = selectedEntry else { return .ignored }
+                guard let entry = selectedEntry else { return true }
                 detailID = entry.id
                 focusedTarget = .detail
             } else {
                 closeDetail()
             }
-            return .handled
-        case .leftArrow:
-            moveSelection(by: -1)
-            return .handled
-        case .rightArrow:
-            moveSelection(by: 1)
-            return .handled
-        case .upArrow where isVertical:
-            moveSelection(by: -1)
-            return .handled
-        case .downArrow where isVertical:
-            moveSelection(by: 1)
-            return .handled
-        default:
-            return .ignored
+        case .dismiss:
+            if detailID != nil {
+                closeDetail()
+            } else if !searchText.isEmpty {
+                searchText = ""
+            } else {
+                model.closePanel()
+            }
+        case .focusSearch:
+            if detailID != nil { closeDetail() }
+            focusedTarget = .search
         }
+        return true
     }
 
     private func moveSelection(by offset: Int) {
@@ -364,8 +354,6 @@ struct ShelfView: View {
         if detailID != nil {
             detailID = entry.id
             focusedTarget = .detail
-        } else {
-            focusedTarget = .history
         }
     }
 }

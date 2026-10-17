@@ -15,6 +15,7 @@ final class PanelController {
     private let panel: ShelfPanel
     private let model: AppController
     private(set) var previousApplication: NSRunningApplication?
+    private(set) var previousFocus: PasteTargetFocus?
     private var lastExternalApplication: NSRunningApplication?
     private var targetFrame: NSRect = .zero
     private var displayFrame: NSRect = .zero
@@ -66,6 +67,9 @@ final class PanelController {
         } else {
             previousApplication = frontmost
             lastExternalApplication = frontmost
+        }
+        previousFocus = previousApplication.flatMap {
+            PasteTargetFocus.capture(for: $0.processIdentifier)
         }
 
         let mouse = NSEvent.mouseLocation

@@ -2,11 +2,21 @@ import AppKit
 
 @MainActor
 enum ClipboardPasteboardWriter {
-    static func write(_ entry: ClipboardEntry, from store: ClipboardHistoryStore, to board: NSPasteboard) -> Bool {
+    enum Mode { case original, plainText }
+
+    static func write(
+        _ entry: ClipboardEntry,
+        from store: ClipboardHistoryStore,
+        to board: NSPasteboard,
+        mode: Mode = .original
+    ) -> Bool {
+        if mode == .plainText && entry.kind != .text && entry.kind != .link {
+            return false
+        }
         switch entry.kind {
         case .text, .link:
             guard let text = entry.text else { return false }
-            if entry.hasRichText {
+            if entry.hasRichText && mode == .original {
                 let formats = store.richTextData(for: entry)
                 let item = NSPasteboardItem()
                 guard item.setString(text, forType: .string) else { return false }

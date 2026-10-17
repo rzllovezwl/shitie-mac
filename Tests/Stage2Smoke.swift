@@ -37,6 +37,12 @@ struct Stage2Smoke {
         try check(board.string(forType: .string) == code, "回写后代码缩进或结尾空行改变")
         try check(board.data(forType: .rtf) == rtf && board.data(forType: .html) == html,
                   "RTF/HTML 没有原样回写")
+        try check(ClipboardPasteboardWriter.write(rich, from: store, to: board, mode: .plainText),
+                  "富文本无法用纯文本模式回写")
+        try check(board.string(forType: .string) == code
+                  && board.data(forType: .rtf) == nil
+                  && board.data(forType: .html) == nil,
+                  "纯文本粘贴应保留代码空白字符且不携带格式")
         now.addTimeInterval(20)
         _ = try store.addRichText(code, rtf: rtf, html: html, rtfd: nil,
                                   sourceAppName: "另一个编辑器", sourceAppBundleID: "app.other")
@@ -65,6 +71,8 @@ struct Stage2Smoke {
                   && reloaded.activeStorageBytes - beforeReferenceBytes < 1_000_000,
                   "位置引用错误保存了文件内容")
         try check(ClipboardPasteboardWriter.write(reference, from: reloaded, to: board), "文件位置无法回写剪贴板")
+        try check(!ClipboardPasteboardWriter.write(reference, from: reloaded, to: board, mode: .plainText),
+                  "文件引用不应被当成纯文本粘贴")
         let copiedURLs = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) ?? []
         try check(copiedURLs.compactMap { $0 as? URL }.contains(where: {
             $0.resolvingSymlinksInPath().path == original.resolvingSymlinksInPath().path
