@@ -159,38 +159,30 @@ struct ShelfView: View {
     }
 
     private var headerActions: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             headerAction(
-                symbol: model.isPaused ? "play.fill" : "pause.fill",
+                symbol: model.isPaused ? "play.circle" : "pause.circle",
                 title: model.isPaused ? "继续记录" : "暂停记录"
             ) {
                 model.isPaused.toggle()
             }
 
-            headerAction(symbol: "trash", title: "清空历史记录") {
+            headerAction(symbol: "trash.circle", title: "清空历史记录") {
                 model.confirmClearHistory()
             }
             .disabled(model.entries.isEmpty)
 
-            headerAction(symbol: "gearshape", title: "打开设置") {
+            headerAction(symbol: "gearshape.circle", title: "打开设置") {
                 model.openSettings()
             }
 
-            Button {
+            headerAction(symbol: "xmark.circle", title: "收起面板") {
                 if detailEntry != nil {
                     closeDetail()
                 } else {
                     model.closePanel()
                 }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("收起面板")
-            .help("收起面板")
             .keyboardShortcut(.escape, modifiers: [])
         }
     }
@@ -202,8 +194,9 @@ struct ShelfView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 28, height: 28)
+                .font(.system(size: 18, weight: .regular))
+                .symbolRenderingMode(.monochrome)
+                .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
