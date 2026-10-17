@@ -159,24 +159,22 @@ struct ShelfView: View {
     }
 
     private var headerActions: some View {
-        HStack(spacing: 8) {
-            Menu {
-                Toggle("暂停记录", isOn: $model.isPaused)
-                Button("清空历史记录…", role: .destructive) {
-                    model.confirmClearHistory()
-                }
-                .disabled(model.entries.isEmpty)
-                Divider()
-                Button("设置…", systemImage: "gearshape") {
-                    model.openSettings()
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 24, height: 24)
-                    .contentShape(Rectangle())
+        HStack(spacing: 4) {
+            headerAction(
+                symbol: model.isPaused ? "play.fill" : "pause.fill",
+                title: model.isPaused ? "继续记录" : "暂停记录"
+            ) {
+                model.isPaused.toggle()
             }
-            .menuStyle(.borderlessButton)
-            .accessibilityLabel("更多操作")
+
+            headerAction(symbol: "trash", title: "清空历史记录") {
+                model.confirmClearHistory()
+            }
+            .disabled(model.entries.isEmpty)
+
+            headerAction(symbol: "gearshape", title: "打开设置") {
+                model.openSettings()
+            }
 
             Button {
                 if detailEntry != nil {
@@ -187,12 +185,30 @@ struct ShelfView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .frame(width: 24, height: 24)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("收起面板")
+            .help("收起面板")
             .keyboardShortcut(.escape, modifiers: [])
         }
+    }
+
+    private func headerAction(
+        symbol: String,
+        title: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .help(title)
     }
 
     private var historyStrip: some View {

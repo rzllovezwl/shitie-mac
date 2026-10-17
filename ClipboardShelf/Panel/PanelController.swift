@@ -100,8 +100,15 @@ final class PanelController {
             panel.makeMain()
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            Task { @MainActor in
-                self?.hide()
+            let clickLocation = NSEvent.mouseLocation
+            Task { @MainActor [weak self] in
+                guard let self, self.panel.isVisible else { return }
+                // During activation, the first click on our panel can reach
+                // the global monitor. Treat the visible and destination frames
+                // as inside so header actions cannot dismiss the panel.
+                guard !self.panel.frame.contains(clickLocation),
+                      !self.targetFrame.contains(clickLocation) else { return }
+                self.hide()
             }
         }
         settingsClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
