@@ -60,7 +60,6 @@ final class PanelController {
     }
 
     func show() {
-        let shouldKeepSettingsBehind = !NSApp.isActive
         let frontmost = NSWorkspace.shared.frontmostApplication
         if frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier {
             previousApplication = lastExternalApplication
@@ -89,20 +88,18 @@ final class PanelController {
         let startFrame = PanelLayout.offscreenFrame(from: targetFrame, placement: currentPlacement)
         panel.setFrame(startFrame, display: false)
         panel.orderFrontRegardless()
-        NSApp.activate(ignoringOtherApps: true)
+        // AppKit raises the current main and key windows when activating the app.
+        // Select the shelf first so an already open Settings window stays in
+        // its existing place behind the app the user was working in.
         panel.makeKeyAndOrderFront(nil)
-        if shouldKeepSettingsBehind {
-            SettingsWindowController.shared.orderBehindOtherApps()
-        }
-        // Activating a regular app with Settings open can restore Settings as
-        // the key window on the next run loop. Restore only the shelf to the
-        // foreground after AppKit finishes activation.
+        panel.makeMain()
+        _ = NSRunningApplication.current.activate(options: [])
+        // Activation can finish on the next run loop. Keep keyboard navigation
+        // and trackpad gestures directed to the shelf after that transition.
         DispatchQueue.main.async { [weak panel] in
             guard let panel, panel.isVisible, NSApp.isActive else { return }
             panel.makeKeyAndOrderFront(nil)
-            if shouldKeepSettingsBehind {
-                SettingsWindowController.shared.orderBehindOtherApps()
-            }
+            panel.makeMain()
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor in

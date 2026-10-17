@@ -13,11 +13,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         _ = NSApp.setActivationPolicy(.regular)
     }
 
-    func orderBehindOtherApps() {
-        guard let window, window.isVisible, !window.isMiniaturized else { return }
-        window.orderBack(nil)
-    }
-
     func contains(_ eventWindow: NSWindow?) -> Bool {
         guard let window, let eventWindow else { return false }
         return eventWindow === window || eventWindow.sheetParent === window
