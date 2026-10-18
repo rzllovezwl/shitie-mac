@@ -79,9 +79,17 @@ final class SourceAppIconResolver {
             missing.insert(key)
             return nil
         }
-        let image = workspace.icon(forFile: appURL.path)
+        let image = Self.bundledIcon(at: appURL) ?? workspace.icon(forFile: appURL.path)
         cache[key] = image
         return image
+    }
+
+    private static func bundledIcon(at appURL: URL) -> NSImage? {
+        guard let iconFile = Bundle(url: appURL)?.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
+              !iconFile.isEmpty else { return nil }
+        let fileName = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
+        let iconURL = appURL.appendingPathComponent("Contents/Resources").appendingPathComponent(fileName)
+        return NSImage(contentsOf: iconURL)
     }
 
     nonisolated private static func findInstalledApplication(bundleID: String?, named name: String?) -> String? {
