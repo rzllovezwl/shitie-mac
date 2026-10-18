@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+private enum MenuBarArtwork {
+    static let clipboard: NSImage = {
+        let source = NSImage(named: NSImage.Name(LucideSymbol.clipboard.assetName))
+            ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
+            ?? NSImage(size: NSSize(width: 14, height: 14))
+        let image = (source.copy() as? NSImage) ?? source
+        image.size = NSSize(width: 14, height: 14)
+        image.isTemplate = true
+        return image
+    }()
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         closeOlderInstances()
@@ -47,12 +60,7 @@ struct ClipboardShelfApp: App {
         MenuBarExtra {
             MenuBarContent(model: AppController.shared)
         } label: {
-            Image(LucideSymbol.clipboard.assetName)
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 14, height: 14)
-                .frame(width: 18, height: 18)
+            Image(nsImage: MenuBarArtwork.clipboard)
                 .accessibilityLabel("ClipHoook")
         }
         .menuBarExtraStyle(.menu)
