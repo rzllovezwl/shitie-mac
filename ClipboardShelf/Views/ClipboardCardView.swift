@@ -1,5 +1,22 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
+
+private extension ClipboardEntry {
+    var contentTypeLabel: String {
+        if kind == .fileReference {
+            let fileExtension = URL(fileURLWithPath: fileName ?? "").pathExtension
+            let type = fileType.flatMap(UTType.init) ?? UTType(filenameExtension: fileExtension)
+            return type?.localizedDescription ?? "文件"
+        }
+        return switch kind {
+        case .image: "图片"
+        case .fileReference: "文件"
+        case .link: "链接"
+        case .text: hasRichText ? "富文本" : "文本"
+        }
+    }
+}
 
 struct ClipboardCardView: View {
     let entry: ClipboardEntry
@@ -20,8 +37,8 @@ struct ClipboardCardView: View {
         VStack(alignment: .leading, spacing: 10 * textScale) {
             HStack(spacing: 6) {
                 LucideIcon(entry.kind.lucideSymbol, size: 11 * textScale)
-                Text(entry.kind == .image ? "图片" : entry.kind == .fileReference ? "文件位置" :
-                     entry.hasRichText ? "富文本" : entry.kind == .link ? "链接" : "文本")
+                Text(entry.contentTypeLabel)
+                    .lineLimit(1)
                 Spacer(minLength: 4)
                 Text(entry.createdAt, style: .relative)
                     .lineLimit(1)
@@ -58,7 +75,7 @@ struct ClipboardCardView: View {
                 SourceAppIconView(
                     bundleID: entry.sourceAppBundleID,
                     name: entry.sourceAppName,
-                    size: 14 * textScale
+                    size: 18 * textScale
                 )
                 Text(entry.sourceAppName ?? "未知来源")
                     .lineLimit(1)
@@ -101,12 +118,7 @@ struct ClipboardListRowView: View {
     let onDelete: () -> Void
 
     private var kindName: String {
-        switch entry.kind {
-        case .image: "图片"
-        case .fileReference: "文件位置"
-        case .link: "链接"
-        case .text: entry.hasRichText ? "富文本" : "文本"
-        }
+        entry.contentTypeLabel
     }
 
     private var summary: String {
@@ -157,7 +169,7 @@ struct ClipboardListRowView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 HStack(spacing: 5) {
-                    SourceAppIconView(bundleID: entry.sourceAppBundleID, name: entry.sourceAppName, size: 12)
+                    SourceAppIconView(bundleID: entry.sourceAppBundleID, name: entry.sourceAppName, size: 16)
                     Text(entry.sourceAppName ?? "未知来源")
                         .lineLimit(1)
                 }

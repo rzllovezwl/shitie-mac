@@ -31,6 +31,7 @@ final class AppController: ObservableObject {
     static let shared = AppController(store: ClipboardHistoryStore())
     private static let hotKeyConflictMessage = "⌘⇧V 注册失败，可能被其他应用占用；仍可从菜单栏打开。"
     private static let pastePermissionMessage = "已复制，请手动按 ⌘V；允许键盘事件权限后可自动粘贴。"
+    private static let copiedMessage = "已复制到剪贴板"
 
     @Published private(set) var entries: [ClipboardEntry] = []
     @Published private(set) var statusMessage: String?
@@ -109,6 +110,7 @@ final class AppController: ObservableObject {
         if panel.isVisible {
             panel.hide()
         } else {
+            if statusMessage == Self.copiedMessage { statusMessage = nil }
             panelPresentationID = UUID()
             panel.show()
         }
@@ -147,7 +149,7 @@ final class AppController: ObservableObject {
                 : "复制失败，原始内容可能已不可用。"
             return
         }
-        statusMessage = "已复制到剪贴板"
+        statusMessage = Self.copiedMessage
         panel.hide()
     }
 

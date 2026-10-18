@@ -8,7 +8,7 @@ private enum MenuBarArtwork {
             ?? NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: nil)
             ?? NSImage(size: NSSize(width: 14, height: 14))
         let image = (source.copy() as? NSImage) ?? source
-        image.size = NSSize(width: 14, height: 14)
+        image.size = NSSize(width: 17, height: 17)
         image.isTemplate = true
         return image
     }()

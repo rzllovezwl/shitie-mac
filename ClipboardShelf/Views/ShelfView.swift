@@ -106,10 +106,10 @@ struct ShelfView: View {
             searchText = ""
             detailID = nil
             selectedID = model.entries.first?.id
-            // The keyboard workflow starts in search on every opening.
+            // Start on the selected card so Space opens its preview immediately.
             focusedTarget = nil
             Task { @MainActor in
-                focusedTarget = .search
+                focusedTarget = .history
             }
         }
     }
@@ -285,20 +285,24 @@ struct ShelfView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(model.isPaused ? Color.orange : Color.green)
-                .frame(width: 6, height: 6)
-            Text(model.statusMessage ?? (model.isPaused
-                ? "已暂停记录"
-                : isVertical
-                    ? "输入搜索 · ↑↓ 选卡片 · ↩ 粘贴 · 空格详情"
-                    : "输入搜索 · ←→ 选卡片 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制 · 空格详情"))
-                .lineLimit(isVertical ? 2 : 1)
-                .foregroundStyle(model.statusMessage?.contains("请手动") == true ? Color.orange : Color.secondary)
-            Spacer()
-            Text("⌘⇧V")
-                .fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 4) {
+            if let message = model.statusMessage ?? (model.isPaused ? "已暂停记录" : nil) {
+                Text(message)
+                    .lineLimit(isVertical ? 2 : 1)
+                    .foregroundStyle(message.contains("请手动") ? Color.orange : Color.secondary)
+            }
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(model.isPaused ? Color.orange : Color.green)
+                    .frame(width: 6, height: 6)
+                Text(isVertical
+                     ? "⌘F 搜索 · ↑↓ 切换 · 空格预览 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制"
+                     : "⌘F 搜索 · ←→ 切换 · 空格预览 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制")
+                    .lineLimit(isVertical ? 2 : 1)
+                Spacer()
+                Text("⌘⇧V")
+                    .fontWeight(.medium)
+            }
         }
         .font(.system(size: 11))
         .foregroundStyle(.secondary)
@@ -313,7 +317,7 @@ struct ShelfView: View {
     private func closeDetail() {
         detailID = nil
         if selectedID != nil {
-            focusedTarget = .search
+            focusedTarget = .history
         }
     }
 

@@ -87,7 +87,7 @@ struct ClipboardDetailView: View {
                     SourceAppIconView(
                         bundleID: entry.sourceAppBundleID,
                         name: entry.sourceAppName,
-                        size: 13
+                        size: 16
                     )
                     Text("来源：\(entry.sourceAppName ?? "未知")")
                 }
