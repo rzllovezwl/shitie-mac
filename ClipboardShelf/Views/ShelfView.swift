@@ -221,14 +221,32 @@ struct ShelfView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 GeometryReader { stripGeometry in
+                    let cardSize = PanelLayout.cardSize(
+                        in: stripGeometry.size,
+                        placement: PanelPlacement(rawValue: panelPlacement) ?? .bottom
+                    )
+
                     ScrollViewReader { scrollProxy in
-                        ScrollView(.vertical) {
-                            LazyVStack(spacing: 8) {
-                                historyRows
+                        ScrollView(isVertical ? .vertical : .horizontal) {
+                            Group {
+                                if isVertical {
+                                    LazyVStack(spacing: 12) {
+                                        cardList(cardSize: cardSize)
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                } else {
+                                    LazyHStack(alignment: .top, spacing: 12) {
+                                        cardList(cardSize: cardSize)
+                                    }
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 2)
+                                }
                             }
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 3)
                         }
+                        // Reopening begins with the newest card fully visible,
+                        // even when the previous session scrolled far away.
+                        .id(model.panelPresentationID)
                         .scrollIndicators(.hidden)
                         .focusable()
                         .focused($focusedTarget, equals: .history)
@@ -236,17 +254,12 @@ struct ShelfView: View {
                         .onChange(of: selectedID) { _, newID in
                             guard let newID else { return }
                             withAnimation(.easeOut(duration: 0.16)) {
-                                scrollProxy.scrollTo(newID, anchor: .center)
-                            }
-                        }
-                        .onChange(of: model.panelPresentationID) { _, _ in
-                            if let selectedID {
-                                scrollProxy.scrollTo(selectedID, anchor: .top)
+                                scrollProxy.scrollTo(newID)
                             }
                         }
                         .onChange(of: stripGeometry.size) { _, _ in
                             if let selectedID {
-                                scrollProxy.scrollTo(selectedID, anchor: .center)
+                                scrollProxy.scrollTo(selectedID)
                             }
                         }
                     }
@@ -255,11 +268,13 @@ struct ShelfView: View {
         }
     }
 
-    private var historyRows: some View {
+    private func cardList(cardSize: CGSize) -> some View {
         ForEach(filteredEntries) { entry in
-            ClipboardListRowView(
+            ClipboardCardView(
                 entry: entry,
+                imageURL: model.imageURL(for: entry),
                 thumbnailURL: model.thumbnailURL(for: entry),
+                cardSize: cardSize,
                 isSelected: selectedID == entry.id,
                 onSelect: { select(entry) },
                 onPaste: { model.paste(entry) },
@@ -276,7 +291,9 @@ struct ShelfView: View {
                 .frame(width: 6, height: 6)
             Text(model.statusMessage ?? (model.isPaused
                 ? "已暂停记录"
-                : "输入搜索 · ↑↓ 选择 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制 · 空格详情"))
+                : isVertical
+                    ? "输入搜索 · ↑↓ 选卡片 · ↩ 粘贴 · 空格详情"
+                    : "输入搜索 · ←→ 选卡片 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制 · 空格详情"))
                 .lineLimit(isVertical ? 2 : 1)
                 .foregroundStyle(model.statusMessage?.contains("请手动") == true ? Color.orange : Color.secondary)
             Spacer()
