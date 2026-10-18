@@ -9,7 +9,6 @@ struct ClipboardDetailView: View {
     let savedCopyName: String?
     let fileReferenceAvailable: Bool
     let onCopy: () -> Void
-    let onPin: () -> Void
     let onSaveFileCopy: () -> Void
     let onDelete: () -> Void
     let onClose: () -> Void
@@ -30,15 +29,6 @@ struct ClipboardDetailView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(entry.kind == .fileReference && !fileReferenceAvailable)
-                if entry.kind == .image {
-                    Button(action: onPin) {
-                        LucideLabel("固定到桌面", symbol: .pin, iconSize: 13)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(imageURL == nil)
-                    .help("固定图片为独立浮窗，关闭浮窗即可取消固定")
-                }
                 if entry.kind == .fileReference {
                     Button(action: onSaveFileCopy) {
                         Text(fileHasSavedCopy ? "更新副本…" : "保存副本…")
