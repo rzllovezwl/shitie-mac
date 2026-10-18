@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(HistoryStoragePolicy.retentionKey) private var historyRetention = HistoryRetention.sevenDays.rawValue
     @AppStorage(HistoryStoragePolicy.maximumMegabytesKey) private var historyMaximumStorageMB = 0
     @AppStorage(CopySoundPreference.enabledKey) private var copySoundEnabled = true
+    @AppStorage(ClipboardCopyFormat.preferenceKey) private var defaultCopyFormat = ClipboardCopyFormat.original.rawValue
     @State private var showsPrivacyPolicy = false
     @State private var showsReleaseHistory = false
     @State private var showsForeverWarning = false
@@ -90,6 +91,18 @@ struct SettingsView: View {
                     LucideLabel("试听提示音", symbol: .play)
                 }
                 Text("每次剪贴板内容变化时播放；关闭录制也不会关闭提示音。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("复制与粘贴") {
+                Picker("默认复制格式", selection: $defaultCopyFormat) {
+                    ForEach(ClipboardCopyFormat.allCases) { format in
+                        Text(format.title).tag(format.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text("普通复制、双击和 Return 粘贴使用所选格式。纯文本只对文字与链接生效；图片和文件仍保留原内容。⌥↩ 可单次使用纯文本粘贴。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

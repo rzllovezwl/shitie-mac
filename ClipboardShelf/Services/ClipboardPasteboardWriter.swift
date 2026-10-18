@@ -1,8 +1,29 @@
 import AppKit
 
+enum ClipboardCopyFormat: String, CaseIterable, Identifiable {
+    static let preferenceKey = "defaultCopyFormat"
+
+    case original, plainText
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .original: "原格式"
+        case .plainText: "纯文本"
+        }
+    }
+
+    @MainActor
+    func mode(for entry: ClipboardEntry) -> ClipboardPasteboardWriter.Mode {
+        self == .plainText && (entry.kind == .text || entry.kind == .link)
+            ? .plainText : .original
+    }
+}
+
 @MainActor
 enum ClipboardPasteboardWriter {
-    enum Mode { case original, plainText }
+    enum Mode: Equatable { case original, plainText }
 
     static func write(
         _ entry: ClipboardEntry,

@@ -155,10 +155,17 @@ final class ClipboardHistoryStore {
     }
 
     func originalFileIsAvailable(_ entry: ClipboardEntry) -> Bool {
-        guard let url = resolvedOriginalURL(for: entry) else { return false }
+        withOriginalFileURL(for: entry) { _ in true } ?? false
+    }
+
+    func withOriginalFileURL<T>(for entry: ClipboardEntry, _ work: (URL) -> T) -> T? {
+        guard entry.kind == .fileReference else { return nil }
+        guard let url = resolvedOriginalURL(for: entry) else { return nil }
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { url.stopAccessingSecurityScopedResource() } }
-        return (try? url.checkResourceIsReachable()) == true && fileManager.isReadableFile(atPath: url.path)
+        guard (try? url.checkResourceIsReachable()) == true,
+              fileManager.isReadableFile(atPath: url.path) else { return nil }
+        return work(url)
     }
 
     func withUsableFileURL<T>(for entry: ClipboardEntry, _ work: (URL) -> T) -> T? {

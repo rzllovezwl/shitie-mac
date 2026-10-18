@@ -74,6 +74,7 @@ struct ShelfView: View {
                         savedCopyName: model.savedCopyDisplayName(for: entry),
                         fileReferenceAvailable: model.fileReferenceIsAvailable(entry),
                         onCopy: { model.copy(entry) },
+                        onRevealOriginalFile: { model.revealOriginalFile(entry) },
                         onSaveFileCopy: { model.saveFileCopy(entry) },
                         onDelete: { model.confirmDelete(entry) },
                         onClose: { closeDetail() }
@@ -296,8 +297,8 @@ struct ShelfView: View {
                     .fill(model.isPaused ? Color.orange : Color.green)
                     .frame(width: 6, height: 6)
                 Text(isVertical
-                     ? "⌘F 搜索 · ↑↓ 切换 · 空格预览 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制"
-                     : "⌘F 搜索 · ←→ 切换 · 空格预览 · ↩ 粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制")
+                     ? "⌘F 搜索 · ↑↓ 切换 · 空格预览 · ↩ 按设置粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制"
+                     : "⌘F 搜索 · ←→ 切换 · 空格预览 · ↩ 按设置粘贴 · ⌥↩ 纯文本 · ⌘↩ 只复制")
                     .lineLimit(isVertical ? 2 : 1)
                 Spacer()
                 Text("⌘⇧V")

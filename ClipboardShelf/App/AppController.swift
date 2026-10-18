@@ -143,7 +143,7 @@ final class AppController: ObservableObject {
     }
 
     func copy(_ entry: ClipboardEntry) {
-        guard writeToPasteboard(entry) else {
+        guard writeToPasteboard(entry, mode: defaultCopyMode(for: entry)) else {
             statusMessage = entry.kind == .fileReference
                 ? "原文件和保存的副本都不可用；请重新选择文件。"
                 : "复制失败，原始内容可能已不可用。"
@@ -154,12 +154,12 @@ final class AppController: ObservableObject {
     }
 
     func paste(_ entry: ClipboardEntry) {
-        paste(entry, mode: .original)
+        paste(entry, mode: defaultCopyMode(for: entry))
     }
 
     func pastePlainText(_ entry: ClipboardEntry) {
         guard entry.kind == .text || entry.kind == .link else {
-            statusMessage = "这条记录没有纯文本；可按 Return 保留原格式粘贴。"
+            statusMessage = "这条记录没有纯文本；请按 Return 粘贴原内容。"
             return
         }
         paste(entry, mode: .plainText)
@@ -373,6 +373,18 @@ final class AppController: ObservableObject {
         store.fileReferenceIsAvailable(entry)
     }
 
+    @discardableResult
+    func revealOriginalFile(_ entry: ClipboardEntry) -> Bool {
+        guard store.withOriginalFileURL(for: entry, { url in
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return true
+        }) == true else {
+            statusMessage = "原文件已移动、删除或无法访问；无法在访达中显示。"
+            return false
+        }
+        return true
+    }
+
     func saveFileCopy(_ entry: ClipboardEntry) {
         guard entry.kind == .fileReference else { return }
         var replacement: URL?
@@ -546,9 +558,15 @@ final class AppController: ObservableObject {
         recoveryBytes = store.recoveryBytes
     }
 
+    private func defaultCopyMode(for entry: ClipboardEntry) -> ClipboardPasteboardWriter.Mode {
+        let rawValue = UserDefaults.standard.string(forKey: ClipboardCopyFormat.preferenceKey) ?? ""
+        let preference = ClipboardCopyFormat(rawValue: rawValue) ?? .original
+        return preference.mode(for: entry)
+    }
+
     private func writeToPasteboard(
         _ entry: ClipboardEntry,
-        mode: ClipboardPasteboardWriter.Mode = .original
+        mode: ClipboardPasteboardWriter.Mode
     ) -> Bool {
         let board = NSPasteboard.general
         let succeeded = ClipboardPasteboardWriter.write(entry, from: store, to: board, mode: mode)

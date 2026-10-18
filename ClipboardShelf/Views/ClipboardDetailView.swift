@@ -9,9 +9,11 @@ struct ClipboardDetailView: View {
     let savedCopyName: String?
     let fileReferenceAvailable: Bool
     let onCopy: () -> Void
+    let onRevealOriginalFile: () -> Bool
     let onSaveFileCopy: () -> Void
     let onDelete: () -> Void
     let onClose: () -> Void
+    @State private var revealFailed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -92,8 +94,25 @@ struct ClipboardDetailView: View {
                     Text("来源：\(entry.sourceAppName ?? "未知")")
                 }
                 if entry.kind == .fileReference {
-                    Text("原位置：\(entry.filePath ?? "未知")")
-                        .lineLimit(2)
+                    Button {
+                        revealFailed = !onRevealOriginalFile()
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Text("原位置：\(entry.filePath ?? "未知")")
+                                .lineLimit(2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("在访达中显示")
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("在访达中显示原文件")
+                    .accessibilityLabel("在访达中显示原文件：\(entry.filePath ?? "未知")")
+                    if revealFailed {
+                        Text("原文件已移动、删除或无法访问，无法在访达中显示。")
+                            .foregroundStyle(.orange)
+                    }
                     Text(fileHasSavedCopy ? "保存方式：位置引用 + 本地副本" : "保存方式：仅位置引用")
                     if let savedCopyName {
                         Text("副本文件：\(savedCopyName)")
@@ -115,5 +134,6 @@ struct ClipboardDetailView: View {
             .foregroundStyle(.secondary)
         }
         .padding(18)
+        .onChange(of: entry.id) { _, _ in revealFailed = false }
     }
 }

@@ -33,11 +33,16 @@ struct Stage2Smoke {
                                         sourceAppName: "编辑器", sourceAppBundleID: "app.editor"), "保存富文本失败")
         let rich = store.entries[0]
         try check(rich.hasRichText && rich.text == code, "富文本原文被改写")
+        try check(ClipboardCopyFormat.original.mode(for: rich) == .original
+                  && ClipboardCopyFormat.plainText.mode(for: rich) == .plainText,
+                  "默认复制格式没有正确应用到富文本")
         try check(ClipboardPasteboardWriter.write(rich, from: store, to: board), "富文本回写剪贴板失败")
         try check(board.string(forType: .string) == code, "回写后代码缩进或结尾空行改变")
         try check(board.data(forType: .rtf) == rtf && board.data(forType: .html) == html,
                   "RTF/HTML 没有原样回写")
-        try check(ClipboardPasteboardWriter.write(rich, from: store, to: board, mode: .plainText),
+        try check(ClipboardPasteboardWriter.write(
+            rich, from: store, to: board, mode: ClipboardCopyFormat.plainText.mode(for: rich)
+        ),
                   "富文本无法用纯文本模式回写")
         try check(board.string(forType: .string) == code
                   && board.data(forType: .rtf) == nil
@@ -70,7 +75,14 @@ struct Stage2Smoke {
         try check(!reloaded.fileHasSavedCopy(reference)
                   && reloaded.activeStorageBytes - beforeReferenceBytes < 1_000_000,
                   "位置引用错误保存了文件内容")
-        try check(ClipboardPasteboardWriter.write(reference, from: reloaded, to: board), "文件位置无法回写剪贴板")
+        try check(reloaded.withOriginalFileURL(for: reference) { $0.resolvingSymlinksInPath().path }
+                  == original.resolvingSymlinksInPath().path,
+                  "无法定位原文件位置")
+        try check(ClipboardCopyFormat.plainText.mode(for: reference) == .original,
+                  "纯文本设置不应阻止文件复制")
+        try check(ClipboardPasteboardWriter.write(
+            reference, from: reloaded, to: board, mode: ClipboardCopyFormat.plainText.mode(for: reference)
+        ), "文件位置无法回写剪贴板")
         try check(!ClipboardPasteboardWriter.write(reference, from: reloaded, to: board, mode: .plainText),
                   "文件引用不应被当成纯文本粘贴")
         let copiedURLs = board.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) ?? []
@@ -86,6 +98,8 @@ struct Stage2Smoke {
         try check(reloaded.fileHasSavedCopy(withCopy) && reloaded.activeStorageBytes > beforeReferenceBytes + 2_000_000,
                   "文件副本未计入实际占用")
         try FileManager.default.removeItem(at: original)
+        try check(reloaded.withOriginalFileURL(for: withCopy) { _ in true } == nil,
+                  "原文件失效时不能把保存的副本冒充为原位置")
         try check(reloaded.fileReferenceIsAvailable(withCopy)
                   && reloaded.withUsableFileURL(for: withCopy, { (try? Data(contentsOf: $0)) == fileData }) == true,
                   "原文件删除后，保存的副本不可用")
