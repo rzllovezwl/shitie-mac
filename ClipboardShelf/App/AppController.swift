@@ -110,7 +110,10 @@ final class AppController: ObservableObject {
         if panel.isVisible {
             panel.hide()
         } else {
-            if statusMessage == Self.copiedMessage { statusMessage = nil }
+            if statusMessage == Self.copiedMessage
+                || statusMessage?.hasPrefix("已复制，请手动按 ⌘V") == true {
+                statusMessage = nil
+            }
             panelPresentationID = UUID()
             panel.show()
         }
@@ -182,8 +185,8 @@ final class AppController: ObservableObject {
                 showManualPasteMessage("已复制，请手动按 ⌘V；未找到原应用。", target: nil)
                 return
             }
-            guard let originalFocus = panel.previousFocus,
-                  originalFocus.processIdentifier == target.processIdentifier else {
+            guard let originalTarget = panel.previousTarget,
+                  originalTarget.processIdentifier == target.processIdentifier else {
                 showManualPasteMessage("已复制，请手动按 ⌘V；无法核对原输入位置。", target: target)
                 return
             }
@@ -202,9 +205,9 @@ final class AppController: ObservableObject {
                         }
                         try? await Task.sleep(nanoseconds: 50_000_000)
                     }
-                    // Activation may restore the previous editor a moment after
-                    // the process becomes frontmost. Do not paste into another field.
-                    while !originalFocus.stillMatches() {
+                    // The original input element or window may return shortly after
+                    // the process becomes frontmost. Wait for the captured target.
+                    while !originalTarget.stillMatches() {
                         guard Date() < deadline,
                               NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else {
                             self.statusMessage = "已复制，请手动按 ⌘V；原输入位置已变化或无法核对。"
@@ -216,7 +219,7 @@ final class AppController: ObservableObject {
                         self.statusMessage = "已复制，请手动按 ⌘V；原应用焦点已变化。"
                         return
                     }
-                    guard originalFocus.stillMatches() else {
+                    guard originalTarget.stillMatches() else {
                         self.statusMessage = "已复制，请手动按 ⌘V；原输入位置已变化。"
                         return
                     }
@@ -230,15 +233,11 @@ final class AppController: ObservableObject {
     }
 
     private func showManualPasteMessage(_ message: String, target: NSRunningApplication?) {
-        statusMessage = message
-        let presentationID = panelPresentationID
-        // Give the user a moment to read the fallback in the panel footer.
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            guard panelPresentationID == presentationID, panel.isVisible else { return }
-            panel.hide {
-                if let target, !target.isTerminated { _ = target.activate(options: []) }
-            }
+        // Keep the fallback available in the menu bar without replacing the panel's
+        // persistent keyboard hints with a transient orange banner.
+        panel.hide { [weak self] in
+            self?.statusMessage = message
+            if let target, !target.isTerminated { _ = target.activate(options: []) }
         }
     }
 
@@ -376,6 +375,7 @@ final class AppController: ObservableObject {
     @discardableResult
     func revealOriginalFile(_ entry: ClipboardEntry) -> Bool {
         guard store.withOriginalFileURL(for: entry, { url in
+            panel.hide()
             NSWorkspace.shared.activateFileViewerSelecting([url])
             return true
         }) == true else {
