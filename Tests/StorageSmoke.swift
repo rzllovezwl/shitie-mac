@@ -58,6 +58,19 @@ struct StorageSmoke {
         _ = try store.addImage(image, type: "public.png", sourceAppName: "预览", sourceAppBundleID: "app.preview")
         try check(store.entries[0].id == imageEntry.id && (try Data(contentsOf: imageURL)) == image,
                   "重复复制未修复缺失的图片文件")
+        let copiesBeforeImport = store.entries[0].copyCount
+        try check(try !store.importPhoneScreenshot(image, type: "public.png"),
+                  "重复送达的 iPhone 截图不应生成新卡片")
+        try check(store.entries[0].copyCount == copiesBeforeImport,
+                  "重复送达的 iPhone 截图不应增加复制次数")
+        let phoneImage = Data(repeating: 0x52, count: 4096)
+        try check(try store.importPhoneScreenshot(phoneImage, type: "public.png"),
+                  "新的 iPhone 截图保存失败")
+        try check(store.entries[0].sourceAppName == "iPhone 截图" &&
+                  store.entries[0].copyCount == nil &&
+                  (try Data(contentsOf: store.imageURL(for: store.entries[0])!)) == phoneImage,
+                  "iPhone 截图来源、次数或图片内容不正确")
+        try store.delete(store.entries[0])
         try store.delete(imageEntry)
         try check(store.entries.count == 2 && !FileManager.default.fileExists(atPath: imageURL.path), "单条删除未移除图片")
         let codeEntry = store.entries.first { $0.id == firstID }!

@@ -1,0 +1,55 @@
+import Foundation
+
+@main
+struct PhoneScreenshotTransportSmoke {
+    static func main() throws {
+        let port: UInt16 = 52782
+        let payload = Data([0x89, 0x50, 0x4e, 0x47])
+        let lock = NSLock()
+        var received: Data?
+        let receiver = PhoneScreenshotReceiver(token: "local-test-secret", port: port, onImage: { data, completion in
+            lock.lock()
+            received = data
+            lock.unlock()
+            completion(.saved)
+        }, onState: { _ in })
+        try receiver.start()
+        defer { receiver.stop() }
+
+        // A bound listener normally becomes ready in milliseconds. URLSession
+        // handles the TCP connection and the HTTP response just as Shortcuts does.
+        Thread.sleep(forTimeInterval: 0.3)
+        let address = "http://127.0.0.1:\(port)/v1/screenshot/"
+        // NWListener.newConnectionLimit is a lifetime budget, not a concurrent
+        // connection cap. Regressions must remain visible after eight requests.
+        for attempt in 1...12 {
+            let allowed = try post(payload, to: address + "local-test-secret")
+            precondition(allowed == 200, "authorized upload \(attempt) failed: \(allowed)")
+        }
+        lock.lock()
+        let recorded = received
+        lock.unlock()
+        precondition(recorded == payload, "uploaded bytes changed")
+        let denied = try post(payload, to: address + "wrong-secret")
+        precondition(denied == 403, "wrong pairing secret was accepted: \(denied)")
+        print("Phone screenshot transport smoke test passed")
+    }
+
+    private static func post(_ body: Data, to address: String) throws -> Int {
+        var request = URLRequest(url: URL(string: address)!)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.setValue("image/png", forHTTPHeaderField: "Content-Type")
+        let finished = DispatchSemaphore(value: 0)
+        var status = -1
+        var failure: Error?
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            failure = error
+            finished.signal()
+        }.resume()
+        precondition(finished.wait(timeout: .now() + 5) == .success, "request timed out")
+        if let failure { throw failure }
+        return status
+    }
+}

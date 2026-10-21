@@ -52,6 +52,25 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("iPhone 截图") {
+                Toggle("接收 iPhone 截图", isOn: Binding(
+                    get: { model.phoneScreenshotReceivingEnabled },
+                    set: { model.setPhoneScreenshotReceivingEnabled($0) }
+                ))
+                LabeledContent("状态", value: model.phoneScreenshotReceiverStatus)
+                if model.phoneScreenshotReceivingEnabled {
+                    Text(model.phoneScreenshotEndpoint)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button("复制接收地址") {
+                        model.copyPhoneScreenshotEndpoint()
+                    }
+                    Text("在 iPhone 快捷指令中，用“获取 URL 内容”向此地址 POST 截图文件。手机和 Mac 需连接同一可信局域网；HTTP 传输不加密，地址包含私密配对码，请勿分享。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("不记录的应用") {
                 if !RecordingExclusionPolicy.configurationIsValid(in: .standard) {
                     Text("排除设置无法读取，当前已停止保存新记录。")

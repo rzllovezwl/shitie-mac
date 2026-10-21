@@ -18,6 +18,7 @@
 		35E7E8B4FA082B2FFE297CB1 /* ShortcutKeyCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFCAA77FE5C2A75D7B76505 /* ShortcutKeyCapture.swift */; };
 		3A83411B0E5197F07523717B /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B2E95C0834FCF0BCB676B3 /* AppController.swift */; };
 		4244695508B00CEB6CE5AD83 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9433378679025CEF820DCFEA /* ShelfView.swift */; };
+		474ACF6A764785919B2AC097 /* PhoneScreenshotHTTPParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 884F69A40A4626465868B8F7 /* PhoneScreenshotHTTPParser.swift */; };
 		47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F142413106E0A3D39B5E6919 /* PrivacyPolicyView.swift */; };
 		4E69E2FA0A55EF1E6FDB851F /* TextPreviewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A1616E87745528CF58C2A7 /* TextPreviewRenderer.swift */; };
 		4ED679F04A56529BB4EEEDB5 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DB1F3A30A32085B34D49E2B /* SettingsWindowController.swift */; };
@@ -39,6 +40,7 @@
 		C6C11C38D13455AC741FC04D /* RecordingExclusionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D8A0BD62EDF813B8B5D557 /* RecordingExclusionPolicy.swift */; };
 		C73FAE9B807E5DCF69D87CD7 /* ClipboardBatchCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069106AD7CF63B1DF614FE7D /* ClipboardBatchCapture.swift */; };
 		C81AF215825BDA564FE22823 /* PanelHeightOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58FAB07A310C62B47AE1EBC /* PanelHeightOption.swift */; };
+		CC2ED36A3AEFD8E5A97E5320 /* PhoneScreenshotReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9396CEEBAEEEAF6CF9ADCF4 /* PhoneScreenshotReceiver.swift */; };
 		CD418F2A781A8F56B38A65CE /* PasteTargetFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5232DCA2601386A50EDCE77 /* PasteTargetFocus.swift */; };
 		CDA3FF77D014E06C42916308 /* PanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D280CEAD9C2985B8DCFAB589 /* PanelController.swift */; };
 		D15FBD5CC4D7596A3F58BA6E /* ReleaseHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2A70E110B01797F694AE26D /* ReleaseHistoryView.swift */; };
@@ -82,6 +84,7 @@
 		7E43410045EA257B0B5BEC4B /* GlobalHotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotKey.swift; sourceTree = "<group>"; };
 		837BFDE68D5F1EC13126545B /* Devicon-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Devicon-LICENSE.txt"; sourceTree = "<group>"; };
 		85928782CE353467C43C4E00 /* SourceAppIconView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceAppIconView.swift; sourceTree = "<group>"; };
+		884F69A40A4626465868B8F7 /* PhoneScreenshotHTTPParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenshotHTTPParser.swift; sourceTree = "<group>"; };
 		89DEFC50F2AFB7AF09A1DDCF /* ClipboardImageCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardImageCapture.swift; sourceTree = "<group>"; };
 		9433378679025CEF820DCFEA /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
 		9823B4446A289238B144650B /* ClipboardShelfApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardShelfApp.swift; sourceTree = "<group>"; };
@@ -89,6 +92,7 @@
 		B2A70E110B01797F694AE26D /* ReleaseHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseHistoryView.swift; sourceTree = "<group>"; };
 		B4B2E95C0834FCF0BCB676B3 /* AppController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppController.swift; sourceTree = "<group>"; };
 		B5232DCA2601386A50EDCE77 /* PasteTargetFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTargetFocus.swift; sourceTree = "<group>"; };
+		C9396CEEBAEEEAF6CF9ADCF4 /* PhoneScreenshotReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneScreenshotReceiver.swift; sourceTree = "<group>"; };
 		CD941C0479375F3FDD8B6811 /* ClipboardPasteboardWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardPasteboardWriter.swift; sourceTree = "<group>"; };
 		CEAF1F7D2A95FECDD74D43A8 /* ClipboardShelf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClipboardShelf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D280CEAD9C2985B8DCFAB589 /* PanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanelController.swift; sourceTree = "<group>"; };
@@ -115,6 +119,8 @@
 				7E43410045EA257B0B5BEC4B /* GlobalHotKey.swift */,
 				0A93DD9D17C127EFEAB22B57 /* PasteService.swift */,
 				B5232DCA2601386A50EDCE77 /* PasteTargetFocus.swift */,
+				884F69A40A4626465868B8F7 /* PhoneScreenshotHTTPParser.swift */,
+				C9396CEEBAEEEAF6CF9ADCF4 /* PhoneScreenshotReceiver.swift */,
 				47A1616E87745528CF58C2A7 /* TextPreviewRenderer.swift */,
 			);
 			path = Services;
@@ -353,6 +359,8 @@
 				E8176DC9BF1B796ADA9A96E9 /* PanelLayout.swift in Sources */,
 				28E5C1316ED5E87085E32E7E /* PasteService.swift in Sources */,
 				CD418F2A781A8F56B38A65CE /* PasteTargetFocus.swift in Sources */,
+				474ACF6A764785919B2AC097 /* PhoneScreenshotHTTPParser.swift in Sources */,
+				CC2ED36A3AEFD8E5A97E5320 /* PhoneScreenshotReceiver.swift in Sources */,
 				47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */,
 				C6C11C38D13455AC741FC04D /* RecordingExclusionPolicy.swift in Sources */,
 				9EA43BF9AFF14F039DBE4263 /* ReleaseHistory.swift in Sources */,

@@ -17,6 +17,11 @@ struct SourceAppIconView: View {
                     .resizable()
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
+            } else if name == "iPhone 截图" {
+                Image(systemName: "iphone")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(.secondary)
             } else {
                 LucideIcon(.file, size: size * 0.75)
                     .foregroundStyle(.secondary)
@@ -26,6 +31,7 @@ struct SourceAppIconView: View {
         .accessibilityHidden(true)
         .task(id: lookupKey) {
             icon = nil
+            if name == "iPhone 截图" { return }
             icon = await SourceAppIconResolver.shared.icon(bundleID: bundleID, name: name)
         }
     }

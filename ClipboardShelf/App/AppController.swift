@@ -51,11 +51,15 @@ final class AppController: ObservableObject {
     @Published private(set) var historyStorageBytes: Int64 = 0
     @Published private(set) var migrationBackupBytes: Int64 = 0
     @Published private(set) var recoveryBytes: Int64 = 0
+    @Published private(set) var phoneScreenshotReceivingEnabled: Bool
+    @Published private(set) var phoneScreenshotReceiverStatus = "未开启"
+    let phoneScreenshotEndpoint: String
     @Published var isPaused: Bool {
         didSet { UserDefaults.standard.set(isPaused, forKey: "recordingPaused") }
     }
 
     private let store: ClipboardHistoryStore
+    private var phoneScreenshotReceiver: PhoneScreenshotReceiver?
     private let hotKey = GlobalHotKey()
     private lazy var panel = PanelController(model: self)
     private var timer: Timer?
@@ -80,6 +84,12 @@ final class AppController: ObservableObject {
 
     init(store: ClipboardHistoryStore) {
         self.store = store
+        phoneScreenshotReceivingEnabled = UserDefaults.standard.bool(
+            forKey: PhoneScreenshotReceiver.enabledKey
+        )
+        phoneScreenshotEndpoint = PhoneScreenshotReceiver.endpoint(
+            token: PhoneScreenshotReceiver.token()
+        )
         var loaded: [AppShortcutAction: AppShortcut] = [:]
         for action in AppShortcutAction.allCases {
             let candidate = AppShortcutPreference.load(
@@ -135,6 +145,7 @@ final class AppController: ObservableObject {
         }
         _ = CopySoundPlayer.shared
         _ = panel
+        if phoneScreenshotReceivingEnabled { startPhoneScreenshotReceiver() }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
@@ -158,6 +169,84 @@ final class AppController: ObservableObject {
         RunLoop.main.add(captureTimer, forMode: .common)
     }
 
+    func setPhoneScreenshotReceivingEnabled(_ enabled: Bool) {
+        guard phoneScreenshotReceivingEnabled != enabled else { return }
+        phoneScreenshotReceivingEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: PhoneScreenshotReceiver.enabledKey)
+        if enabled {
+            startPhoneScreenshotReceiver()
+        } else {
+            phoneScreenshotReceiver?.stop()
+            phoneScreenshotReceiver = nil
+            phoneScreenshotReceiverStatus = "未开启"
+        }
+    }
+
+    func copyPhoneScreenshotEndpoint() {
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(phoneScreenshotEndpoint, forType: .string)
+        // The pairing URL is a secret, so never record our own settings copy.
+        clipboardChanges.markOwnWrite(changeCount: board.changeCount)
+    }
+
+    private func startPhoneScreenshotReceiver() {
+        guard phoneScreenshotReceiver == nil else { return }
+        phoneScreenshotReceiverStatus = "正在启动…"
+        let receiver = PhoneScreenshotReceiver(
+            token: PhoneScreenshotReceiver.token(),
+            onImage: { [weak self] data, completion in
+                Task { @MainActor [weak self] in
+                    completion(self?.importPhoneScreenshot(data) ?? .rejected)
+                }
+            },
+            onState: { [weak self] status in
+                Task { @MainActor [weak self] in
+                    guard self?.phoneScreenshotReceivingEnabled == true else { return }
+                    self?.phoneScreenshotReceiverStatus = status
+                }
+            }
+        )
+        do {
+            try receiver.start()
+            phoneScreenshotReceiver = receiver
+        } catch {
+            phoneScreenshotReceiverStatus = "接收失败：\(error.localizedDescription)"
+            phoneScreenshotReceivingEnabled = false
+            UserDefaults.standard.set(false, forKey: PhoneScreenshotReceiver.enabledKey)
+        }
+    }
+
+    private func importPhoneScreenshot(_ data: Data) -> PhoneScreenshotReceiver.ImportResult {
+        guard phoneScreenshotReceivingEnabled, !isPaused,
+              data.count <= store.maximumImageBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) == 1,
+              CGImageSourceGetStatusAtIndex(source, 0) == .statusComplete,
+              let type = CGImageSourceGetType(source) as String?,
+              ["public.png", "public.jpeg", "public.heic", "public.heif",
+               "com.compuserve.gif", "public.tiff"].contains(type),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0, width <= 20_000, height <= 20_000,
+              Int64(width) * Int64(height) <= 100_000_000
+        else { return .rejected }
+        do {
+            let saved = try store.importPhoneScreenshot(data, type: type)
+            if saved {
+                entries = store.rootEntries
+                refreshStorageSizes(force: false)
+                statusMessage = "已收到 iPhone 截图"
+                return .saved
+            }
+            return .alreadySaved
+        } catch {
+            statusMessage = "保存 iPhone 截图失败：\(error.localizedDescription)"
+            return .rejected
+        }
+    }
+
     func togglePanel() {
         if panel.isVisible {
             panel.hide()
@@ -179,6 +268,10 @@ final class AppController: ObservableObject {
     func openSourceApplication(for entry: ClipboardEntry) {
         let bundleID = entry.sourceAppBundleID
         let name = entry.sourceAppName
+        if name == "iPhone 截图" {
+            statusMessage = "这张截图来自 iPhone，无法在 Mac 上打开来源应用。"
+            return
+        }
         guard (bundleID?.isEmpty == false) || (name?.isEmpty == false) else {
             statusMessage = "这条记录没有可识别的来源应用。"
             return
@@ -802,6 +895,13 @@ final class AppController: ObservableObject {
             break
         @unknown default:
             break
+        }
+
+        // A pairing URL can re-enter the pasteboard through Universal
+        // Clipboard after being copied in Settings. Never persist that secret.
+        if board.string(forType: .string) == phoneScreenshotEndpoint {
+            clipboardChanges.markHandled(changeCount: changeCount)
+            return
         }
 
         guard RecordingExclusionPolicy.configurationIsValid(in: .standard) else {

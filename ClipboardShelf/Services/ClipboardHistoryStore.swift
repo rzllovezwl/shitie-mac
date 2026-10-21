@@ -363,6 +363,39 @@ final class ClipboardHistoryStore {
         return true
     }
 
+    /// Screenshots sent by an iPhone are imports, not clipboard copy events.
+    /// Repeated delivery of the same bytes must neither create another card
+    /// nor increase the copy counter of an existing image.
+    func importPhoneScreenshot(_ data: Data, type: String) throws -> Bool {
+        guard !data.isEmpty, data.count <= maximumImageBytes else { return false }
+        _ = try requiredDatabase()
+        let digest = Self.digest(data: data, prefix: "image")
+        if let existing = entries.first(where: { $0.digest == digest }) {
+            if let name = existing.imageFileName, safeFileName(name) {
+                let url = imagesDirectory.appendingPathComponent(name)
+                if !fileManager.fileExists(atPath: url.path) {
+                    try data.write(to: url, options: .atomic)
+                }
+            }
+            return false
+        }
+        let id = UUID()
+        let name = "\(id.uuidString).\(Self.imageExtension(for: type))"
+        let url = imagesDirectory.appendingPathComponent(name)
+        try data.write(to: url, options: .atomic)
+        let entry = ClipboardEntry(
+            id: id, createdAt: now(), firstCopiedAt: nil, copyCount: nil,
+            kind: .image, text: nil, imageFileName: name, imagePasteboardType: type,
+            digest: digest, byteCount: data.count, sourceAppName: "iPhone 截图",
+            sourceAppBundleID: nil
+        )
+        do { try requiredDatabase().upsert(entry) }
+        catch { try? fileManager.removeItem(at: url); throw error }
+        insertNewestFirst(entry)
+        _ = try pruneEntries()
+        return true
+    }
+
     func addRichText(
         _ text: String, rtf: Data?, html: Data?, rtfd: Data?,
         sourceAppName: String?, sourceAppBundleID: String? = nil,
@@ -1044,7 +1077,9 @@ final class ClipboardHistoryStore {
         case "public.png": "png"
         case "public.jpeg": "jpg"
         case "public.heic": "heic"
+        case "public.heif": "heif"
         case "com.compuserve.gif": "gif"
+        case "public.tiff": "tiff"
         default: "tiff"
         }
     }
