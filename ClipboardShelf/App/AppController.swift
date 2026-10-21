@@ -237,7 +237,9 @@ final class AppController: ObservableObject {
             if saved {
                 entries = store.rootEntries
                 refreshStorageSizes(force: false)
+                CopySoundPlayer.shared.playIfEnabled()
                 statusMessage = "已收到 iPhone 截图"
+                phoneScreenshotReceiverStatus = "已就绪，最近收到截图：\(DateFormatter.localizedString(from: .now, dateStyle: .none, timeStyle: .short))"
                 return .saved
             }
             return .alreadySaved

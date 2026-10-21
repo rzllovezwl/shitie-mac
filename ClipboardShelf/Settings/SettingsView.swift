@@ -108,13 +108,13 @@ struct SettingsView: View {
             }
 
             Section("声音") {
-                Toggle("复制后播放提示音", isOn: $copySoundEnabled)
+                Toggle("复制或收到 iPhone 截图时播放提示音", isOn: $copySoundEnabled)
                 Button {
                     CopySoundPlayer.shared.playPreview()
                 } label: {
                     LucideLabel("试听提示音", symbol: .play)
                 }
-                Text("每次剪贴板内容变化时播放；关闭录制也不会关闭提示音。")
+                Text("剪贴板内容变化或成功收到新 iPhone 截图时播放；重复截图不会再次播放。关闭录制也不会关闭复制提示音。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
