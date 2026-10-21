@@ -7,6 +7,7 @@ struct SourceAppIconSmoke {
     @MainActor
     static func main() async throws {
         let resolver = SourceAppIconResolver.shared
+        let applicationResolver = SourceApplicationResolver.shared
         let systemApps: [(String?, String)] = [
             (nil, "系统设置"),
             (nil, "Safari浏览器"),
@@ -17,6 +18,16 @@ struct SourceAppIconSmoke {
                   hasVisibleArtwork(image) else {
                 throw SourceAppIconTestError.notFound(name)
             }
+        }
+
+        guard let finder = await applicationResolver.applicationURL(bundleID: "com.apple.finder", name: "访达"),
+              Bundle(url: finder)?.bundleIdentifier == "com.apple.finder",
+              let legacyFinder = await applicationResolver.applicationURL(bundleID: nil, name: "访达"),
+              Bundle(url: legacyFinder)?.bundleIdentifier == "com.apple.finder" else {
+            throw SourceAppIconTestError.notFound("Finder 应用位置")
+        }
+        guard await applicationResolver.applicationURL(bundleID: "invalid.cliphoook.source.app", name: "访达") == nil else {
+            throw SourceAppIconTestError.notFound("Bundle ID 严格匹配")
         }
 
         if FileManager.default.fileExists(atPath: "/Applications/ChatGPT.app") {

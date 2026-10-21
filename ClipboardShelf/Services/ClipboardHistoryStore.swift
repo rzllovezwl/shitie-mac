@@ -4,9 +4,32 @@ import QuickLookThumbnailing
 import UniformTypeIdentifiers
 import AppKit
 
+/// Keeps a security-scoped original accessible while Quick Look renders it.
+/// A saved copy lives in our own storage and needs no security scope.
+final class FilePreviewAccess {
+    let url: URL
+    private let startedSecurityScope: Bool
+
+    init?(url: URL, usesSecurityScope: Bool) {
+        let started = usesSecurityScope && url.startAccessingSecurityScopedResource()
+        guard (try? url.checkResourceIsReachable()) == true,
+              FileManager.default.isReadableFile(atPath: url.path) else {
+            if started { url.stopAccessingSecurityScopedResource() }
+            return nil
+        }
+        self.url = url
+        startedSecurityScope = started
+    }
+
+    deinit {
+        if startedSecurityScope { url.stopAccessingSecurityScopedResource() }
+    }
+}
+
 enum ClipboardHistoryStoreError: LocalizedError {
     case unavailable, invalidLegacyRecord, migrationVerificationFailed, legacyWriterDetected, invalidSavedRecord
     case fileReferenceUnavailable, fileCopyExceedsLimit, unsupportedFile
+    case invalidBatch
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +41,7 @@ enum ClipboardHistoryStoreError: LocalizedError {
         case .fileReferenceUnavailable: "原文件已移动、删除或无法访问；请重新选择文件。"
         case .fileCopyExceedsLimit: "文件副本超过设置的最大存储量；请调整上限后重试。"
         case .unsupportedFile: "目前只能保存普通文件的副本，不能保存文件夹或符号链接。"
+        case .invalidBatch: "这批内容无法完整保存；系统剪贴板内容未受影响。"
         }
     }
 }
@@ -63,12 +87,33 @@ final class ClipboardHistoryStore {
     private let now: () -> Date
     private let calendar: Calendar
     private var database: ClipboardHistoryDatabase?
+    private var batchInProgress = false
+    private var lastInsertedID: UUID?
 
     private(set) var entries: [ClipboardEntry] = []
     private(set) var errorMessage: String?
     let maximumImageBytes = 15 * 1_024 * 1_024
-    let maximumTextBytes = 1 * 1_024 * 1_024
+    let maximumTextBytes = 32 * 1_024 * 1_024
     let maximumRichTextBytes = 15 * 1_024 * 1_024
+
+    var rootEntries: [ClipboardEntry] {
+        let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        var lastGroupedAt: [UUID: Date] = [:]
+        for group in entries where group.kind == .group {
+            for id in group.groupMemberIDs {
+                lastGroupedAt[id] = max(lastGroupedAt[id] ?? .distantPast, group.createdAt)
+            }
+        }
+        return entries.compactMap { entry in
+            if let groupedAt = lastGroupedAt[entry.id], entry.createdAt <= groupedAt {
+                return nil
+            }
+            guard entry.kind == .group else { return entry }
+            var group = entry
+            group.groupMembers = group.groupMemberIDs.compactMap { byID[$0] }
+            return group
+        }
+    }
 
     init(
         directory overrideDirectory: URL? = nil,
@@ -154,6 +199,15 @@ final class ClipboardHistoryStore {
         withUsableFileURL(for: entry) { (try? $0.checkResourceIsReachable()) == true } ?? false
     }
 
+    func filePreviewAccess(for entry: ClipboardEntry) -> FilePreviewAccess? {
+        guard entry.kind == .fileReference else { return nil }
+        if let copy = savedCopyURL(for: entry) {
+            return FilePreviewAccess(url: copy, usesSecurityScope: false)
+        }
+        guard let original = resolvedOriginalURL(for: entry) else { return nil }
+        return FilePreviewAccess(url: original, usesSecurityScope: true)
+    }
+
     func originalFileIsAvailable(_ entry: ClipboardEntry) -> Bool {
         withOriginalFileURL(for: entry) { _ in true } ?? false
     }
@@ -185,6 +239,19 @@ final class ClipboardHistoryStore {
             return try? Data(contentsOf: richTextDirectory.appendingPathComponent(name))
         }
         return (read(entry.rtfFileName), read(entry.htmlFileName), read(entry.rtfdFileName))
+    }
+
+    func richTextSourceFiles(for entry: ClipboardEntry) -> RichTextSourceFiles {
+        func url(_ name: String?) -> URL? {
+            guard let name, safeFileName(name) else { return nil }
+            let candidate = richTextDirectory.appendingPathComponent(name)
+            return fileManager.fileExists(atPath: candidate.path) ? candidate : nil
+        }
+        return RichTextSourceFiles(
+            rtf: url(entry.rtfFileName),
+            html: url(entry.htmlFileName),
+            rtfd: url(entry.rtfdFileName)
+        )
     }
 
     func requestThumbnail(for entry: ClipboardEntry, completion: @escaping () -> Void) {
@@ -265,7 +332,15 @@ final class ClipboardHistoryStore {
             return true
         }
         let id = UUID()
-        let name = "\(id.uuidString).\(type == "public.png" ? "png" : "tiff")"
+        let imageExtension: String
+        switch type {
+        case "public.png": imageExtension = "png"
+        case "public.jpeg": imageExtension = "jpg"
+        case "public.heic": imageExtension = "heic"
+        case "com.compuserve.gif": imageExtension = "gif"
+        default: imageExtension = "tiff"
+        }
+        let name = "\(id.uuidString).\(imageExtension)"
         let url = imagesDirectory.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
         let date = now()
@@ -390,6 +465,162 @@ final class ClipboardHistoryStore {
         return true
     }
 
+    func addUnavailableImageReference(
+        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String?
+    ) throws -> Bool {
+        guard fileURL.isFileURL else { return false }
+        _ = try requiredDatabase()
+        let normalized = fileURL.standardizedFileURL
+        let digest = Self.digest(data: Data(normalized.path.utf8), prefix: "unavailable-image")
+        if try refreshExisting(digest: digest, sourceAppName: sourceAppName,
+                               sourceAppBundleID: sourceAppBundleID) {
+            _ = try pruneEntries()
+            return true
+        }
+        let date = now()
+        var entry = ClipboardEntry(
+            id: UUID(), createdAt: date, firstCopiedAt: date, copyCount: 1,
+            kind: .unavailableImage, text: nil, imageFileName: nil,
+            imagePasteboardType: nil, digest: digest, byteCount: 0,
+            sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID
+        )
+        entry.filePath = normalized.path
+        entry.fileName = normalized.lastPathComponent
+        entry.fileType = UTType(filenameExtension: normalized.pathExtension)?.identifier
+        try requiredDatabase().upsert(entry)
+        insertNewestFirst(entry)
+        _ = try pruneEntries()
+        return true
+    }
+
+    /// Saves one external clipboard change as a unit. Existing payloads keep
+    /// their IDs, while the ordered group references them without copying data.
+    func addCapturedBatch(
+        _ captured: [ClipboardCapturedItem],
+        sourceAppName: String?, sourceAppBundleID: String?,
+        automaticallyGroup: Bool
+    ) throws -> Bool {
+        guard !captured.isEmpty else { return false }
+        let database = try requiredDatabase()
+        let before = entries
+        let oldIDs = Set(before.map(\.id))
+        var savedIDs: [UUID] = []
+        batchInProgress = true
+        do {
+            try database.transaction {
+                // Every add inserts its result at the front. Reverse processing
+                // retains the source application's item order on the shelf.
+                for item in captured.reversed() {
+                    let added: Bool
+                    switch item {
+                    case .text(let text):
+                        added = try addText(text, sourceAppName: sourceAppName,
+                                            sourceAppBundleID: sourceAppBundleID)
+                    case .richText(let text, let rtf, let html, let rtfd):
+                        added = try addRichText(text, rtf: rtf, html: html, rtfd: rtfd,
+                                                sourceAppName: sourceAppName,
+                                                sourceAppBundleID: sourceAppBundleID)
+                    case .image(let data, let type):
+                        added = try addImage(data, type: type, sourceAppName: sourceAppName,
+                                             sourceAppBundleID: sourceAppBundleID)
+                    case .unavailableImage(let url):
+                        added = try addUnavailableImageReference(
+                            url, sourceAppName: sourceAppName,
+                            sourceAppBundleID: sourceAppBundleID
+                        )
+                    case .fileReference(let url):
+                        added = try addFileReference(url, sourceAppName: sourceAppName,
+                                                      sourceAppBundleID: sourceAppBundleID)
+                    }
+                    guard added, let id = lastInsertedID else {
+                        throw ClipboardHistoryStoreError.invalidBatch
+                    }
+                    savedIDs.append(id)
+                }
+                if automaticallyGroup && savedIDs.count > 1 {
+                    _ = try upsertGroup(
+                        memberIDs: Array(savedIDs.reversed()),
+                        sourceAppName: sourceAppName,
+                        sourceAppBundleID: sourceAppBundleID
+                    )
+                }
+            }
+        } catch {
+            batchInProgress = false
+            let newEntries = entries.filter { !oldIDs.contains($0.id) }
+            entries = before
+            for entry in newEntries { try? removePayload(for: entry) }
+            throw error
+        }
+        batchInProgress = false
+        _ = try pruneEntries()
+        return true
+    }
+
+    /// Counts a successful in-panel multi-copy and optionally creates a group.
+    /// The write to the system pasteboard has already succeeded at this point.
+    func recordBatchCopy(of memberIDs: [UUID], automaticallyGroup: Bool) throws -> Bool {
+        var seen: Set<UUID> = []
+        let uniqueIDs = memberIDs.filter { seen.insert($0).inserted }
+        guard memberIDs.count > 1, uniqueIDs.allSatisfy({ id in
+            entries.contains { $0.id == id && $0.kind != .group }
+        }) else { return false }
+        let database = try requiredDatabase()
+        let before = entries
+        do {
+            try database.transaction {
+                for id in uniqueIDs.reversed() {
+                    guard try recordCopy(of: id) else { throw ClipboardHistoryStoreError.invalidBatch }
+                }
+                if automaticallyGroup {
+                    _ = try upsertGroup(
+                        memberIDs: memberIDs,
+                        sourceAppName: "ClipHoook",
+                        sourceAppBundleID: Bundle.main.bundleIdentifier
+                    )
+                }
+            }
+            return true
+        } catch {
+            entries = before
+            throw error
+        }
+    }
+
+    private func upsertGroup(
+        memberIDs: [UUID], sourceAppName: String?, sourceAppBundleID: String?
+    ) throws -> UUID {
+        guard memberIDs.count > 1 else { throw ClipboardHistoryStoreError.invalidBatch }
+        let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        guard memberIDs.allSatisfy({ byID[$0]?.kind != nil && byID[$0]?.kind != .group }) else {
+            throw ClipboardHistoryStoreError.invalidBatch
+        }
+        let signature = memberIDs.map { byID[$0]!.digest }.joined(separator: "\n")
+        let digest = Self.digest(data: Data(signature.utf8), prefix: "group")
+        let date = max(now(), (entries.first?.createdAt ?? .distantPast).addingTimeInterval(0.001))
+        if let index = entries.firstIndex(where: { $0.digest == digest && $0.kind == .group }) {
+            var group = entries.remove(at: index)
+            group.createdAt = date
+            group.copyCount = (group.copyCount ?? 0) + 1
+            group.sourceAppName = sourceAppName
+            group.sourceAppBundleID = sourceAppBundleID
+            try requiredDatabase().upsert(group)
+            insertNewestFirst(group)
+            return group.id
+        }
+        var group = ClipboardEntry(
+            id: UUID(), createdAt: date, firstCopiedAt: date, copyCount: 1,
+            kind: .group, text: nil, imageFileName: nil, imagePasteboardType: nil,
+            digest: digest,
+            byteCount: memberIDs.reduce(0) { $0 + (byID[$1]?.byteCount ?? 0) },
+            sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID
+        )
+        group.groupMemberIDs = memberIDs
+        try requiredDatabase().upsert(group)
+        insertNewestFirst(group)
+        return group.id
+    }
+
     func saveFileCopy(for entry: ClipboardEntry, using replacement: URL? = nil) async throws {
         guard entries.contains(where: { $0.id == entry.id }),
               entry.kind == .fileReference else { throw ClipboardHistoryStoreError.invalidSavedRecord }
@@ -437,10 +668,33 @@ final class ClipboardHistoryStore {
     @discardableResult func applyStoragePolicy() throws -> Bool { try pruneEntries() }
 
     func delete(_ entry: ClipboardEntry) throws {
-        guard entries.contains(where: { $0.id == entry.id }) else { return }
-        try requiredDatabase().delete(entry.id)
-        entries.removeAll { $0.id == entry.id }
-        try removePayload(for: entry)
+        guard let current = entries.first(where: { $0.id == entry.id }) else { return }
+        let database = try requiredDatabase()
+        var changedGroups: [ClipboardEntry] = []
+        var dissolvedIDs: Set<UUID> = []
+        if current.kind != .group {
+            for group in entries where group.kind == .group && group.groupMemberIDs.contains(current.id) {
+                var updated = group
+                updated.groupMemberIDs.removeAll { $0 == current.id }
+                if updated.groupMemberIDs.count < 2 {
+                    dissolvedIDs.insert(group.id)
+                } else {
+                    changedGroups.append(updated)
+                }
+            }
+        }
+        try database.transaction {
+            for group in changedGroups { try database.upsert(group) }
+            for id in dissolvedIDs { try database.delete(id) }
+            try database.delete(current.id)
+        }
+        entries.removeAll { $0.id == current.id || dissolvedIDs.contains($0.id) }
+        for group in changedGroups {
+            if let index = entries.firstIndex(where: { $0.id == group.id }) {
+                entries[index] = group
+            }
+        }
+        try removePayload(for: current)
     }
 
     func clear() throws {
@@ -448,6 +702,22 @@ final class ClipboardHistoryStore {
         try requiredDatabase().deleteAll()
         entries.removeAll()
         for entry in removed { try removePayload(for: entry) }
+    }
+
+    /// Record a successful reuse of a saved entry. The app marks its own
+    /// pasteboard writes as handled, so the regular clipboard poll will not
+    /// refresh this entry for us.
+    func recordCopy(of id: UUID) throws -> Bool {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return false }
+        var entry = entries[index]
+        entry.createdAt = max(now(), (entries.first?.createdAt ?? .distantPast).addingTimeInterval(0.001))
+        // Legacy entries have no trustworthy historical total. Start counting
+        // their known reuses without inventing an original copy date.
+        entry.copyCount = (entry.copyCount ?? 0) + 1
+        try requiredDatabase().upsert(entry)
+        entries.remove(at: index)
+        entries.insert(entry, at: 0)
+        return true
     }
 
     func removeMigrationBackup() throws {
@@ -474,8 +744,8 @@ final class ClipboardHistoryStore {
         guard let index = entries.firstIndex(where: { $0.digest == digest }) else { return false }
         var entry = entries[index]
         entry.createdAt = now()
-        if entry.firstCopiedAt != nil {
-            entry.copyCount = (entry.copyCount ?? 1) + 1
+        if let copyCount = entry.copyCount {
+            entry.copyCount = copyCount + 1
         }
         entry.sourceAppName = sourceAppName
         entry.sourceAppBundleID = sourceAppBundleID
@@ -486,23 +756,25 @@ final class ClipboardHistoryStore {
     }
 
     private func insertNewestFirst(_ entry: ClipboardEntry) {
+        lastInsertedID = entry.id
         let index = entries.firstIndex { $0.createdAt <= entry.createdAt } ?? entries.endIndex
         entries.insert(entry, at: index)
     }
 
     private func pruneEntries() throws -> Bool {
         _ = try requiredDatabase()
+        if batchInProgress { return false }
         let policy = HistoryStoragePolicy(defaults: defaults)
         var changed = false
         if let cutoff = policy.cutoff(before: now(), calendar: calendar) {
-            for entry in entries.filter({ $0.createdAt < cutoff }) {
-                try delete(entry)
+            while let oldest = rootEntries.last, oldest.createdAt < cutoff {
+                try delete(oldest)
                 changed = true
             }
         }
         if let maxBytes = policy.maximumBytes {
             if activeStorageBytes > Int64(maxBytes) { try moveUnreferencedPayloadsToRecovery() }
-            while activeStorageBytes > Int64(maxBytes), let oldest = entries.last {
+            while activeStorageBytes > Int64(maxBytes), let oldest = rootEntries.last {
                 try delete(oldest)
                 changed = true
             }
@@ -551,7 +823,8 @@ final class ClipboardHistoryStore {
     private func removePayload(for entry: ClipboardEntry) throws {
         if entry.kind == .image {
             if let url = imageURL(for: entry) { try fileManager.removeItem(at: url) }
-        } else if entry.kind != .fileReference {
+        } else if entry.kind != .unavailableImage
+                    && entry.kind != .fileReference && entry.kind != .group {
             let url = textURL(for: entry.id)
             if fileManager.fileExists(atPath: url.path) { try fileManager.removeItem(at: url) }
         }
@@ -571,7 +844,8 @@ final class ClipboardHistoryStore {
     }
 
     private func moveUnreferencedPayloadsToRecovery() throws {
-        let textNames = Set(entries.filter { $0.kind != .image && $0.kind != .fileReference }
+        let textNames = Set(entries.filter { $0.kind != .image && $0.kind != .unavailableImage
+            && $0.kind != .fileReference && $0.kind != .group }
             .map { "\($0.id.uuidString).txt" })
         let imageNames = Set(entries.compactMap(\.imageFileName))
         let richNames = Set(entries.flatMap { [$0.rtfFileName, $0.htmlFileName, $0.rtfdFileName].compactMap { $0 } })
@@ -710,7 +984,6 @@ final class ClipboardHistoryStore {
     }
 
     private static func isWebLink(_ value: String) -> Bool {
-        guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
-        return url.scheme == "https" || url.scheme == "http"
+        ClipboardEntry.webURL(from: value) != nil
     }
 }

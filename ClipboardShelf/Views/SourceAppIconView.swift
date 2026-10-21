@@ -37,29 +37,74 @@ final class SourceAppIconResolver {
 
     private var cache: [String: NSImage] = [:]
     private var missing: Set<String> = []
-    private var pending: [String: Task<String?, Never>] = [:]
 
     func icon(bundleID: String?, name: String?) async -> NSImage? {
         let key = "\(bundleID ?? "")|\(name ?? "")"
         if let cached = cache[key] { return cached }
         if missing.contains(key) { return nil }
 
-        let workspace = NSWorkspace.shared
-        var appURL = bundleID.flatMap(workspace.urlForApplication(withBundleIdentifier:))
-        if appURL == nil {
-            let running = workspace.runningApplications.first { application in
-                let matchesBundle = bundleID != nil && application.bundleIdentifier == bundleID
-                let matchesName = name.map { requestedName in
-                    application.localizedName?.localizedCaseInsensitiveCompare(requestedName) == .orderedSame
-                } ?? false
-                return matchesBundle || matchesName
-            }
-            appURL = running?.bundleURL
+        // An old entry may retain a stale Bundle ID. Its icon can still be
+        // matched by name, but launching must never use that weaker match.
+        let resolver = SourceApplicationResolver.shared
+        var appURL = await resolver.applicationURL(bundleID: bundleID, name: name)
+        if appURL == nil, bundleID != nil {
+            appURL = await resolver.applicationURL(bundleID: nil, name: name)
         }
-        let isOwnBundle = bundleID != nil && bundleID == Bundle.main.bundleIdentifier
-        let isOwnName = name != nil && name == Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-        if appURL == nil, isOwnBundle || isOwnName {
-            appURL = Bundle.main.bundleURL
+        guard let appURL else {
+            missing.insert(key)
+            return nil
+        }
+        let image = Self.bundledIcon(at: appURL) ?? NSWorkspace.shared.icon(forFile: appURL.path)
+        cache[key] = image
+        return image
+    }
+
+    private static func bundledIcon(at appURL: URL) -> NSImage? {
+        guard let iconFile = Bundle(url: appURL)?.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
+              !iconFile.isEmpty else { return nil }
+        let fileName = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
+        let iconURL = appURL.appendingPathComponent("Contents/Resources").appendingPathComponent(fileName)
+        return NSImage(contentsOf: iconURL)
+    }
+}
+
+@MainActor
+final class SourceApplicationResolver {
+    static let shared = SourceApplicationResolver()
+
+    private var applicationURLs: [String: URL] = [:]
+    private var unresolvedAt: [String: Date] = [:]
+    private var pending: [String: Task<String?, Never>] = [:]
+
+    func runningApplication(bundleID: String?, name: String?) -> NSRunningApplication? {
+        NSWorkspace.shared.runningApplications.first { application in
+            if let bundleID, !bundleID.isEmpty {
+                return application.bundleIdentifier == bundleID
+            }
+            guard let name, !name.isEmpty else { return false }
+            return application.localizedName?.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    func applicationURL(bundleID: String?, name: String?) async -> URL? {
+        guard (bundleID?.isEmpty == false) || (name?.isEmpty == false) else { return nil }
+        let key = "\(bundleID ?? "")|\(name ?? "")"
+        if let cached = applicationURLs[key], FileManager.default.fileExists(atPath: cached.path) {
+            return cached
+        }
+        if let lastFailure = unresolvedAt[key], Date().timeIntervalSince(lastFailure) < 60 {
+            return nil
+        }
+
+        let workspace = NSWorkspace.shared
+        var appURL = runningApplication(bundleID: bundleID, name: name)?.bundleURL
+        if appURL == nil, let bundleID, !bundleID.isEmpty {
+            appURL = workspace.urlForApplication(withBundleIdentifier: bundleID)
+        }
+        if appURL == nil {
+            let matchesOwnBundle = bundleID != nil && bundleID == Bundle.main.bundleIdentifier
+            let matchesOwnName = bundleID == nil && name == Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            if matchesOwnBundle || matchesOwnName { appURL = Bundle.main.bundleURL }
         }
         if appURL == nil {
             let search: Task<String?, Never>
@@ -75,21 +120,13 @@ final class SourceAppIconResolver {
             pending[key] = nil
             appURL = path.map { URL(fileURLWithPath: $0) }
         }
-        guard let appURL else {
-            missing.insert(key)
-            return nil
+        if let appURL {
+            applicationURLs[key] = appURL
+            unresolvedAt[key] = nil
+        } else {
+            unresolvedAt[key] = .now
         }
-        let image = Self.bundledIcon(at: appURL) ?? workspace.icon(forFile: appURL.path)
-        cache[key] = image
-        return image
-    }
-
-    private static func bundledIcon(at appURL: URL) -> NSImage? {
-        guard let iconFile = Bundle(url: appURL)?.object(forInfoDictionaryKey: "CFBundleIconFile") as? String,
-              !iconFile.isEmpty else { return nil }
-        let fileName = iconFile.hasSuffix(".icns") ? iconFile : "\(iconFile).icns"
-        let iconURL = appURL.appendingPathComponent("Contents/Resources").appendingPathComponent(fileName)
-        return NSImage(contentsOf: iconURL)
+        return appURL
     }
 
     nonisolated private static func findInstalledApplication(bundleID: String?, named name: String?) -> String? {
@@ -98,7 +135,7 @@ final class SourceAppIconResolver {
             "文本编辑": "TextEdit", "访达": "Finder"
         ]
         let lookupName = name.map { aliases[$0] ?? $0 }
-        if bundleID == "com.apple.finder" || lookupName == "Finder" {
+        if bundleID == "com.apple.finder" || (bundleID == nil && lookupName == "Finder") {
             return "/System/Library/CoreServices/Finder.app"
         }
         let fileManager = FileManager.default
@@ -110,8 +147,10 @@ final class SourceAppIconResolver {
         ]
         for root in roots {
             var directories: [(URL, Int)] = [(root, 0)]
-            while !directories.isEmpty {
-                let (directory, depth) = directories.removeFirst()
+            var nextDirectory = 0
+            while nextDirectory < directories.count {
+                let (directory, depth) = directories[nextDirectory]
+                nextDirectory += 1
                 guard let children = try? fileManager.contentsOfDirectory(
                     at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]
                 ) else { continue }
@@ -129,9 +168,9 @@ final class SourceAppIconResolver {
                         bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
                     ].compactMap { $0 }
                     let matchesBundle = bundleID != nil && bundle?.bundleIdentifier == bundleID
-                    let matchesName = lookupName.map { requestedName in
+                    let matchesName = bundleID == nil && lookupName.map { requestedName in
                         candidates.contains { $0.localizedCaseInsensitiveCompare(requestedName) == .orderedSame }
-                    } ?? false
+                    } == true
                     if matchesBundle || matchesName {
                         return url.path
                     }

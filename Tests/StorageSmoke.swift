@@ -80,6 +80,25 @@ struct StorageSmoke {
         try reloaded.removeRecoveryFiles()
         try check(reloaded.recoveryBytes == 0, "手动删除恢复文件失败")
 
+        let reuseFolder = root.appendingPathComponent("manual-copy")
+        let reuseStore = ClipboardHistoryStore(directory: reuseFolder, defaults: defaults, now: clock)
+        _ = try reuseStore.addText("较早的记录", sourceAppName: "编辑器", sourceAppBundleID: "app.editor")
+        let reusedEntry = reuseStore.entries[0]
+        now.addTimeInterval(20)
+        _ = try reuseStore.addText("最新记录", sourceAppName: "浏览器", sourceAppBundleID: "app.browser")
+        try check(try reuseStore.recordCopy(of: reusedEntry.id), "仅复制后未更新历史记录")
+        try check(reuseStore.entries[0].id == reusedEntry.id &&
+                  reuseStore.entries[0].copyCount == 2 &&
+                  reuseStore.entries[0].firstCopiedAt == reusedEntry.firstCopiedAt &&
+                  reuseStore.entries[0].sourceAppBundleID == "app.editor" &&
+                  reuseStore.entries[0].createdAt > reuseStore.entries[1].createdAt,
+                  "仅复制应将原记录置顶、增加次数并保留来源")
+        let reusedAfterRestart = ClipboardHistoryStore(directory: reuseFolder, defaults: defaults, now: clock)
+        try check(reusedAfterRestart.entries[0].id == reusedEntry.id &&
+                  reusedAfterRestart.entries[0].copyCount == 2,
+                  "仅复制后的置顶和次数未持久保存")
+        try check(try !reuseStore.recordCopy(of: UUID()), "不存在的记录不应生成复制次数")
+
         // Create a byte-for-byte fixture of the old JSON + Images layout.
         let legacyFolder = root.appendingPathComponent("legacy")
         let legacyImages = legacyFolder.appendingPathComponent("Images")
@@ -105,6 +124,17 @@ struct StorageSmoke {
         _ = try migrated.addText(code, sourceAppName: "新应用", sourceAppBundleID: "app.new")
         try check(migrated.entries.first(where: { $0.id == legacyTextID })?.copyCount == nil,
                   "旧记录再次复制后编造了历史总次数")
+        let legacySource = migrated.entries.first(where: { $0.id == legacyTextID })?.sourceAppName
+        try check(try migrated.recordCopy(of: legacyTextID), "旧记录仅复制未被计入")
+        try check(migrated.entries[0].id == legacyTextID &&
+                  migrated.entries[0].copyCount == 1 &&
+                  migrated.entries[0].firstCopiedAt == nil &&
+                  migrated.entries[0].sourceAppName == legacySource,
+                  "旧记录应从已知次数开始统计，不能编造首次复制时间或来源")
+        now.addTimeInterval(20)
+        _ = try migrated.addText(code, sourceAppName: "新应用", sourceAppBundleID: "app.new")
+        try check(migrated.entries[0].copyCount == 2,
+                  "旧记录开始统计后，再次复制应继续增加次数")
         let backup = legacyFolder.appendingPathComponent("LegacyMigrationBackup")
         try check((try Data(contentsOf: backup.appendingPathComponent("history.json"))) == oldJSON,
                   "迁移备份缺少旧 JSON")

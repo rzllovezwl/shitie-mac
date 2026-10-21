@@ -21,7 +21,11 @@ struct Stage1KeyboardSmoke {
         try check(action(kVK_Return) == .paste, "回车应保留原格式粘贴")
         try check(action(kVK_ANSI_KeypadEnter) == .paste, "小键盘回车应粘贴")
         try check(action(kVK_Return, [.option]) == .pastePlainText, "Option+回车应纯文本粘贴")
-        try check(action(kVK_Return, [.command]) == .copyOnly, "Command+回车应只复制")
+        try check(action(kVK_Return, [.command]) == nil, "旧的 Command+回车复制键应已移除")
+        try check(action(kVK_ANSI_C, [.command], searchFocused: false) == .copyOnly,
+                  "Command+C 应只复制所选记录")
+        try check(action(kVK_ANSI_C, [.command]) == nil,
+                  "搜索框有焦点时 Command+C 应留给文字复制")
         try check(action(kVK_Return, [.shift]) == nil, "输入法或编辑快捷键不应误触发粘贴")
         try check(action(kVK_UpArrow) == .previous && action(kVK_DownArrow) == .next,
                   "搜索输入期间上下键应切换记录")

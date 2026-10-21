@@ -11,9 +11,14 @@ struct SettingsView: View {
     @AppStorage(HistoryStoragePolicy.maximumMegabytesKey) private var historyMaximumStorageMB = 0
     @AppStorage(CopySoundPreference.enabledKey) private var copySoundEnabled = true
     @AppStorage(ClipboardCopyFormat.preferenceKey) private var defaultCopyFormat = ClipboardCopyFormat.original.rawValue
+    @AppStorage(ClipboardGroupingPreference.key) private var automaticallyGroupMultipleCopies = true
+    @AppStorage(CardPreviewPreference.enabledKey)
+    private var cardFormattedPreviewEnabled = CardPreviewPreference.defaultEnabled
     @State private var showsPrivacyPolicy = false
     @State private var showsReleaseHistory = false
     @State private var showsForeverWarning = false
+    @State private var recordingShortcut: AppShortcutAction?
+    @State private var shortcutError: String?
 
     private var placement: PanelPlacement {
         PanelPlacement(rawValue: panelPlacement) ?? .bottom
@@ -96,18 +101,26 @@ struct SettingsView: View {
             }
 
             Section("复制与粘贴") {
+                Toggle("多项复制自动成组", isOn: $automaticallyGroupMultipleCopies)
+                Text("一次从外部应用复制多个项目，或在面板中多选复制时，默认保存为可展开的分组。关闭后仍会记录和复制全部项目，但分别显示在历史中。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Picker("默认复制格式", selection: $defaultCopyFormat) {
                     ForEach(ClipboardCopyFormat.allCases) { format in
                         Text(format.title).tag(format.rawValue)
                     }
                 }
                 .pickerStyle(.segmented)
-                Text("普通复制、双击和 Return 粘贴使用所选格式。纯文本只对文字与链接生效；图片和文件仍保留原内容。⌥↩ 可单次使用纯文本粘贴。")
+                Text("普通复制、双击和 \(model.shortcut(for: .paste).displayName) 粘贴使用所选格式。纯文本只对文字与链接生效；图片和文件仍保留原内容。\(model.shortcut(for: .pastePlainText).displayName) 可单次使用纯文本粘贴。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
 
             Section("面板") {
+                Toggle("卡片展示格式预览", isOn: $cardFormattedPreviewEnabled)
+                Text("开启后，富文本卡片展示保存的字体和颜色，Markdown 与代码展示排版或高亮。卡片仅显示内容片段，详情中可查看完整内容；复制内容不变。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 Picker("显示屏幕", selection: $panelDisplayScreen) {
                     Text("鼠标所在屏幕").tag("mouse")
                     Text("主屏幕").tag("main")
@@ -199,14 +212,24 @@ struct SettingsView: View {
             }
 
             Section("快捷键与权限") {
-                LabeledContent("打开面板", value: "⌘⇧V")
+                ForEach(AppShortcutAction.allCases, id: \.self) { action in
+                    shortcutRow(action)
+                }
+                if let shortcutError {
+                    Text(shortcutError)
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
+                Text("点击快捷键后按新的组合键，按 Esc 取消。面板操作可用功能单键；唤起面板需组合键。冲突时保留原设置。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 LabeledContent("自动粘贴", value: pastePermissionStatus)
                 Button {
                     model.openPastePermissionSettings()
                 } label: {
                     LucideLabel("打开键盘事件权限设置…", symbol: .keyboard)
                 }
-                Text("授权后，双击记录或按 Return 会在核对原输入位置后发送 ⌘V。无法核对或未授权时会提示手动粘贴。")
+                Text("授权后，双击记录或按 \(model.shortcut(for: .paste).displayName) 会在核对原输入位置后发送 ⌘V。无法核对或未授权时会提示手动粘贴。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -230,6 +253,16 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 520, minHeight: 480)
+        .background {
+            ShortcutKeyCapture(
+                active: recordingShortcut != nil,
+                onKeyDown: captureShortcut,
+                onCancel: stopShortcutRecording
+            )
+            .frame(width: 1, height: 1)
+            .accessibilityHidden(true)
+        }
+        .onDisappear { stopShortcutRecording() }
         .onChange(of: appAppearanceMode) { _, newValue in
             model.updateAppearance(newValue)
         }
@@ -259,6 +292,53 @@ struct SettingsView: View {
         .sheet(isPresented: $showsReleaseHistory) {
             ReleaseHistoryView()
         }
+    }
+
+    private func shortcutRow(_ action: AppShortcutAction) -> some View {
+        let shortcut = model.shortcut(for: action)
+        return LabeledContent(action.title) {
+            HStack(spacing: 8) {
+                Button(recordingShortcut == action ? "请按新按键…" : shortcut.displayName) {
+                    if recordingShortcut == action {
+                        stopShortcutRecording()
+                    } else {
+                        model.beginShortcutRecording()
+                        shortcutError = nil
+                        recordingShortcut = action
+                    }
+                }
+                .buttonStyle(.bordered)
+                .help("点击后按下新的快捷键")
+
+                if shortcut != action.defaultShortcut {
+                    Button("恢复默认") {
+                        applyShortcut(action.defaultShortcut, action: action)
+                    }
+                    .buttonStyle(.link)
+                }
+            }
+        }
+    }
+
+    private func captureShortcut(_ event: NSEvent) {
+        guard let action = recordingShortcut else { return }
+        guard let shortcut = AppShortcut(event: event, requiresModifier: action == .openPanel) else {
+            shortcutError = "请选择有效按键；唤起面板需要修饰键，面板操作也可以使用方向键、空格或 Return 等单键。"
+            return
+        }
+        applyShortcut(shortcut, action: action)
+    }
+
+    private func applyShortcut(_ shortcut: AppShortcut, action: AppShortcutAction) {
+        let error = model.setShortcut(shortcut, for: action)
+        shortcutError = error
+        if error == nil { stopShortcutRecording() }
+    }
+
+    private func stopShortcutRecording() {
+        recordingShortcut = nil
+        shortcutError = nil
+        model.endShortcutRecording()
     }
 
     private func historyStat(_ title: String, value: String, help: HistoryStorageHelp) -> some View {
@@ -326,143 +406,5 @@ private struct HistoryHelpButton: View {
             .padding(16)
             .frame(width: 330, alignment: .leading)
         }
-    }
-}
-
-private enum PanelHeightChoice: String, CaseIterable, Identifiable {
-    case compact, standard, large
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .compact: "紧凑"
-        case .standard: "标准"
-        case .large: "宽敞"
-        }
-    }
-
-    func exampleFrame(placement: PanelPlacement) -> CGRect {
-        PanelLayout.frame(
-            in: CGRect(x: 0, y: 0, width: 1440, height: 900),
-            placement: placement,
-            heightPreference: rawValue
-        )
-    }
-}
-
-private struct PanelHeightOption: View {
-    let choice: PanelHeightChoice
-    let placement: PanelPlacement
-    let isSelected: Bool
-    let action: () -> Void
-
-    private var exampleFrame: CGRect { choice.exampleFrame(placement: placement) }
-    private var exampleDimension: Int {
-        Int(placement.isVertical ? exampleFrame.width : exampleFrame.height)
-    }
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 6) {
-                GeometryReader { geometry in
-                    let panelWidth = geometry.size.width * exampleFrame.width / 1440
-                    let panelHeight = geometry.size.height * exampleFrame.height / 900
-                    let panelX = geometry.size.width * exampleFrame.minX / 1440
-                    let panelY = geometry.size.height * (900 - exampleFrame.maxY) / 900
-
-                    ZStack(alignment: .topLeading) {
-                        RoundedRectangle(cornerRadius: 7)
-                            .fill(Color(nsColor: .windowBackgroundColor))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 7)
-                                    .strokeBorder(.secondary.opacity(0.45), lineWidth: 1)
-                            }
-
-                        VStack {
-                            HStack(spacing: 2) {
-                                ForEach(0..<3) { _ in
-                                    Circle()
-                                        .fill(.secondary.opacity(0.45))
-                                        .frame(width: 3, height: 3)
-                                }
-                                Spacer()
-                            }
-                            Spacer()
-                        }
-                        .padding(6)
-
-                        miniaturePanel(width: panelWidth, height: panelHeight)
-                            .offset(x: panelX, y: panelY)
-                    }
-                }
-                .aspectRatio(1.6, contentMode: .fit)
-
-                HStack(spacing: 4) {
-                    if isSelected {
-                        LucideIcon(.circleCheck, size: 15)
-                            .foregroundStyle(.tint)
-                    }
-                    Text(choice.title)
-                }
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-
-                Text("\(placement.isVertical ? "宽" : "高") \(exampleDimension) pt")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(7)
-            .frame(maxWidth: .infinity)
-            .background(
-                isSelected ? Color.accentColor.opacity(0.12) : Color.secondary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: 10)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 10))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(placement.title)面板：\(choice.title)，示意\(placement.isVertical ? "宽度" : "高度") \(exampleDimension) 点")
-        .accessibilityValue(isSelected ? "已选择" : "未选择")
-    }
-
-    private func miniaturePanel(width: CGFloat, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            RoundedRectangle(cornerRadius: 1)
-                .fill(.primary.opacity(0.35))
-                .frame(width: min(18, max(4, width - 8)), height: 2)
-
-            if placement.isVertical {
-                VStack(spacing: 2) {
-                    miniatureCard(height: max(6, min(18, (height - 14) / 3)))
-                    miniatureCard(height: max(6, min(18, (height - 14) / 3)))
-                }
-            } else {
-                HStack(spacing: 2) {
-                    ForEach(0..<3) { index in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(index == 0 ? Color.accentColor.opacity(0.65) : Color.primary.opacity(0.18))
-                            .frame(width: max(5, (width - 14) / 4), height: max(6, height - 12))
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(3)
-        .frame(width: width, height: height, alignment: .topLeading)
-        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 5))
-        .overlay {
-            RoundedRectangle(cornerRadius: 5)
-                .strokeBorder(Color.accentColor.opacity(0.45), lineWidth: 1)
-        }
-    }
-
-    private func miniatureCard(height: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(Color.accentColor.opacity(0.65))
-            .frame(maxWidth: .infinity)
-            .frame(height: height)
     }
 }

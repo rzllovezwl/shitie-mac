@@ -34,8 +34,9 @@ final class ClipboardHistoryDatabase {
         do {
             try execute("PRAGMA busy_timeout = 2000")
             try execute("PRAGMA secure_delete = ON")
+            try execute("PRAGMA foreign_keys = ON")
             let version = try userVersion()
-            guard version <= 2 else {
+            guard version <= 3 else {
                 throw ClipboardHistoryDatabaseError.unsupportedVersion(version)
             }
             if version == 0 {
@@ -78,6 +79,20 @@ final class ClipboardHistoryDatabase {
                     try execute("ALTER TABLE history_entries ADD COLUMN file_bookmark_name TEXT")
                     try execute("ALTER TABLE history_entries ADD COLUMN file_copy_name TEXT")
                     try execute("PRAGMA user_version = 2")
+                }
+            }
+            if version <= 2 {
+                try transaction {
+                    try execute("""
+                        CREATE TABLE history_group_members (
+                            group_id TEXT NOT NULL REFERENCES history_entries(id) ON DELETE CASCADE,
+                            member_id TEXT NOT NULL REFERENCES history_entries(id) ON DELETE CASCADE,
+                            position INTEGER NOT NULL,
+                            PRIMARY KEY (group_id, position)
+                        )
+                        """)
+                    try execute("CREATE INDEX group_members_by_member ON history_group_members(member_id)")
+                    try execute("PRAGMA user_version = 3")
                 }
             }
         } catch {
@@ -131,7 +146,8 @@ final class ClipboardHistoryDatabase {
             let lastCopiedAt = Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
             let copyCount = sqlite3_column_type(statement, 5) == SQLITE_NULL
                 ? nil : Int(sqlite3_column_int64(statement, 5))
-            let text = kind == .image || kind == .fileReference ? nil : try? String(
+            let text = kind == .image || kind == .unavailableImage
+                || kind == .fileReference || kind == .group ? nil : try? String(
                 contentsOf: contentDirectory.appendingPathComponent("\(id.uuidString).txt"),
                 encoding: .utf8
             )
@@ -159,10 +175,46 @@ final class ClipboardHistoryDatabase {
             entry.fileCopyName = string(statement, column: 18)
             result.append(entry)
         }
+        let members = try prepare("SELECT group_id, member_id FROM history_group_members ORDER BY group_id, position")
+        defer { sqlite3_finalize(members) }
+        var positions: [UUID: [UUID]] = [:]
+        while true {
+            let step = sqlite3_step(members)
+            if step == SQLITE_DONE { break }
+            guard step == SQLITE_ROW,
+                  let groupString = string(members, column: 0),
+                  let memberString = string(members, column: 1),
+                  let groupID = UUID(uuidString: groupString),
+                  let memberID = UUID(uuidString: memberString) else {
+                throw ClipboardHistoryDatabaseError.invalidRecord
+            }
+            positions[groupID, default: []].append(memberID)
+        }
+        for index in result.indices where result[index].kind == .group {
+            result[index].groupMemberIDs = positions[result[index].id] ?? []
+        }
         return result
     }
 
     func upsert(_ entry: ClipboardEntry) throws {
+        guard entry.kind == .group else {
+            try upsertRecordAndMembers(entry)
+            return
+        }
+        // A group refresh rewrites its ordered membership. Keep it atomic even
+        // when the caller is not already in a batch transaction.
+        try execute("SAVEPOINT history_group_upsert")
+        do {
+            try upsertRecordAndMembers(entry)
+            try execute("RELEASE history_group_upsert")
+        } catch {
+            try? execute("ROLLBACK TO history_group_upsert")
+            try? execute("RELEASE history_group_upsert")
+            throw error
+        }
+    }
+
+    private func upsertRecordAndMembers(_ entry: ClipboardEntry) throws {
         let statement = try prepare("""
             INSERT INTO history_entries (
                 id, kind, digest, first_copied_at, last_copied_at, copy_count,
@@ -212,6 +264,24 @@ final class ClipboardHistoryDatabase {
         try bind(entry.fileBookmarkName, to: 18, in: statement)
         try bind(entry.fileCopyName, to: 19, in: statement)
         guard sqlite3_step(statement) == SQLITE_DONE else { throw failure() }
+        if entry.kind == .group {
+            let deleteMembers = try prepare("DELETE FROM history_group_members WHERE group_id = ?")
+            defer { sqlite3_finalize(deleteMembers) }
+            try bind(entry.id.uuidString, to: 1, in: deleteMembers)
+            guard sqlite3_step(deleteMembers) == SQLITE_DONE else { throw failure() }
+            let insertMember = try prepare(
+                "INSERT INTO history_group_members (group_id, member_id, position) VALUES (?, ?, ?)"
+            )
+            defer { sqlite3_finalize(insertMember) }
+            for (position, memberID) in entry.groupMemberIDs.enumerated() {
+                sqlite3_reset(insertMember)
+                sqlite3_clear_bindings(insertMember)
+                try bind(entry.id.uuidString, to: 1, in: insertMember)
+                try bind(memberID.uuidString, to: 2, in: insertMember)
+                try bind(Int64(position), to: 3, in: insertMember)
+                guard sqlite3_step(insertMember) == SQLITE_DONE else { throw failure() }
+            }
+        }
     }
 
     func delete(_ id: UUID) throws {

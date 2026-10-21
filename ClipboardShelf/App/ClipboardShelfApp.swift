@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         closeOlderInstances()
         Task { @MainActor in
+            _ = NSApp.setActivationPolicy(.accessory)
             AppController.shared.start()
         }
     }
@@ -36,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         Task { @MainActor in
-            SettingsWindowController.shared.open()
+            AppController.shared.openSettings()
         }
         return false
     }

@@ -23,10 +23,12 @@
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>23</string>
+	<string>79</string>
     <key>LSMinimumSystemVersion</key>
     <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026. All rights reserved.</string>
+    <key>NSAppDataUsageDescription</key>
+    <string>保存你从微信等应用复制的图片时，ClipHoook 需要读取该应用提供的临时图片文件。</string>
 </dict>
 </plist>

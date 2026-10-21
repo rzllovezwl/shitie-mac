@@ -14,7 +14,7 @@ struct MenuBarContent: View {
         Button {
             model.openSettings()
         } label: {
-            LucideLabel("设置…", symbol: .settings)
+            Label("设置…", systemImage: "gearshape")
         }
 
         if let status = model.statusMessage {
@@ -47,9 +47,9 @@ struct MenuBarContent: View {
         Divider()
 
         if !model.hotKeyRegistered {
-            Text("⌘⇧V 不可用，请检查快捷键冲突")
+            Text("\(model.openPanelShortcut.displayName) 不可用，请检查快捷键冲突")
         } else {
-            Text("⌘⇧V 打开或收起")
+            Text("\(model.openPanelShortcut.displayName) 打开或收起")
         }
 
         Button {

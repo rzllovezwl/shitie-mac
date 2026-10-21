@@ -1,39 +1,42 @@
-private enum ClipboardChangeTestError: Error {
-    case failed(String)
-}
+import Foundation
+
+private enum TrackerTestError: Error { case failed(String) }
 
 @main
 struct ClipboardChangeTrackerSmoke {
     static func main() throws {
         var tracker = ClipboardChangeTracker(initialChangeCount: 10)
+        let start = Date(timeIntervalSince1970: 100)
+        let first = tracker.observe(changeCount: 11, at: start)
+        try check(first.shouldNotify && first.shouldHandle, "新复制未进入处理流程")
 
-        var change = tracker.observe(changeCount: 10)
-        try check(!change.shouldNotify && !change.shouldHandle, "启动时不应播放提示音")
-
-        change = tracker.observe(changeCount: 11)
-        try check(change.shouldNotify && change.shouldHandle, "外部复制应播放并处理")
-
-        change = tracker.observe(changeCount: 11)
-        try check(!change.shouldNotify && change.shouldHandle, "等待剪贴板权限时不应重复播放")
+        try check(tracker.deferHandling(changeCount: 11, at: start), "临时不可读的复制未安排重试")
+        let tooEarly = tracker.observe(changeCount: 11, at: start.addingTimeInterval(0.2))
+        try check(!tooEarly.shouldNotify && !tooEarly.shouldHandle, "读取失败后立即重复处理")
+        let ready = tracker.observe(changeCount: 11, at: start.addingTimeInterval(0.5))
+        try check(!ready.shouldNotify && ready.shouldHandle, "同一复制未按时重试")
 
         tracker.markHandled(changeCount: 11)
-        change = tracker.observe(changeCount: 11)
-        try check(!change.shouldNotify && !change.shouldHandle, "已处理的复制不应再次处理")
+        try check(!tracker.observe(changeCount: 11, at: start.addingTimeInterval(1)).shouldHandle,
+                  "成功记录后仍重复保存")
 
-        change = tracker.observe(changeCount: 12)
-        try check(change.shouldNotify && change.shouldHandle, "相同内容再次复制也应播放")
-        tracker.markHandled(changeCount: 12) // 暂停记录时仍消费本次变更
-        change = tracker.observe(changeCount: 12)
-        try check(!change.shouldNotify && !change.shouldHandle, "恢复记录后不应补录暂停期间的复制")
+        try check(tracker.deferHandling(changeCount: 12, at: start), "下一次复制未安排重试")
+        let replacement = tracker.observe(changeCount: 13, at: start.addingTimeInterval(0.1))
+        try check(replacement.shouldNotify && replacement.shouldHandle,
+                  "新的复制被上一条的重试等待挡住")
 
-        tracker.markOwnWrite(changeCount: 13)
-        change = tracker.observe(changeCount: 13)
-        try check(!change.shouldNotify && !change.shouldHandle, "应用内复制播放后不应再次播放")
-
-        print("Clipboard change tracker smoke test passed")
+        for attempt in 0..<8 {
+            let willRetry = tracker.deferHandling(
+                changeCount: 13, at: start.addingTimeInterval(Double(attempt) * 10)
+            )
+            try check(willRetry == (attempt < 7), "重试次数没有按上限结束")
+        }
+        try check(!tracker.observe(changeCount: 13, at: start.addingTimeInterval(100)).shouldHandle,
+                  "永久无法读取的内容持续重试")
+        print("ClipboardChangeTrackerSmoke passed")
     }
 
-    private static func check(_ condition: Bool, _ message: String) throws {
-        guard condition else { throw ClipboardChangeTestError.failed(message) }
+    private static func check(_ value: @autoclosure () -> Bool, _ message: String) throws {
+        guard value() else { throw TrackerTestError.failed(message) }
     }
 }
