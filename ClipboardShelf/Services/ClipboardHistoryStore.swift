@@ -99,8 +99,18 @@ final class ClipboardHistoryStore {
 
     var rootEntries: [ClipboardEntry] {
         let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        // A group with a missing image cannot be copied as a unit. Show its
+        // members directly so the usable text and the missing-image notice
+        // remain separate cards. Keep the stored group for later repair.
+        let visibleGroups = Set(entries.filter { group in
+            group.kind == .group && group.groupMemberIDs.count > 1 &&
+                group.groupMemberIDs.allSatisfy { id in
+                    guard let member = byID[id] else { return false }
+                    return member.kind != .unavailableImage
+                }
+        }.map(\.id))
         var lastGroupedAt: [UUID: Date] = [:]
-        for group in entries where group.kind == .group {
+        for group in entries where visibleGroups.contains(group.id) {
             for id in group.groupMemberIDs {
                 lastGroupedAt[id] = max(lastGroupedAt[id] ?? .distantPast, group.createdAt)
             }
@@ -110,6 +120,7 @@ final class ClipboardHistoryStore {
                 return nil
             }
             guard entry.kind == .group else { return entry }
+            guard visibleGroups.contains(entry.id) else { return nil }
             var group = entry
             group.groupMembers = group.groupMemberIDs.compactMap { byID[$0] }
             return group

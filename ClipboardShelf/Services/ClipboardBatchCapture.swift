@@ -36,6 +36,9 @@ enum ClipboardBatchCapture {
     private static let weChatMultiSelectionType = NSPasteboard.PasteboardType(
         "com.trolltech.anymime.x-xwechat-multiselect-copy"
     )
+    private static let officeRTFType = NSPasteboard.PasteboardType(
+        "com.trolltech.anymime.text--rtf"
+    )
 
     static func isWeChatMultiSelection(_ board: NSPasteboard) -> Bool {
         board.pasteboardItems?.contains {
@@ -174,7 +177,10 @@ enum ClipboardBatchCapture {
             }
             // Large plain text should not materialize equally large rich data.
             let readRich = byteCount.map { $0 <= maximumRichTextBytes } ?? true
-            let rtf = readRich ? item.data(forType: .rtf) : nil
+            // WPS places the complete RTF, including embedded pictures, under
+            // its Qt MIME bridge type instead of public.rtf.
+            let rtf = readRich
+                ? (item.data(forType: .rtf) ?? item.data(forType: officeRTFType)) : nil
             let html = readRich ? item.data(forType: .html) : nil
             let rtfd = readRich ? item.data(forType: .rtfd) : nil
             let text = directText

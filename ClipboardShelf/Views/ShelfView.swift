@@ -621,7 +621,7 @@ struct ShelfView: View {
         .padding(inset)
         .background {
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color.primary.opacity(0.055))
+                .fill(Color.primary.opacity(0.085))
                 .opacity(expanded ? 1 : 0)
         }
         .overlay {

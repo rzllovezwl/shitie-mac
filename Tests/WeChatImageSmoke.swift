@@ -346,13 +346,18 @@ struct WeChatImageSmoke {
         let reloadedProtectedStore = ClipboardHistoryStore(
             directory: root.appendingPathComponent("ProtectedHistory"), defaults: defaults
         )
-        guard let protectedGroup = reloadedProtectedStore.rootEntries.first,
-              protectedGroup.groupMembers.map(\.kind) == [.text, .unavailableImage, .unavailableImage]
-        else { throw WeChatImageTestError.failed("重启后微信不完整分组丢失") }
-        try check(ClipboardFilter.image.matches(protectedGroup),
-                  "未保存图片的分组没有出现在图片筛选中")
-        try check(ClipboardFilterInventory(entries: [protectedGroup]).count(for: .image) == 1,
-                  "图片筛选数量未包含不完整分组")
+        try check(reloadedProtectedStore.rootEntries.map(\.kind) ==
+                  [.text, .unavailableImage, .unavailableImage],
+                  "缺图批次仍显示为分组，或分开展示的原始顺序错误")
+        guard var protectedGroup = reloadedProtectedStore.entries.first(where: { $0.kind == .group })
+        else { throw WeChatImageTestError.failed("不完整批次的成员关系未保存") }
+        protectedGroup.groupMembers = protectedGroup.groupMemberIDs.compactMap { id in
+            reloadedProtectedStore.entries.first(where: { $0.id == id })
+        }
+        try check(protectedGroup.groupMembers.map(\.kind) == [.text, .unavailableImage, .unavailableImage],
+                  "重启后微信不完整批次的成员丢失")
+        try check(ClipboardFilterInventory(entries: reloadedProtectedStore.rootEntries).count(for: .image) == 2,
+                  "图片筛选没有显示两张独立的未保存图片")
         let unchangedBoard = NSPasteboard.withUniqueName()
         defer { unchangedBoard.releaseGlobally() }
         unchangedBoard.clearContents()
@@ -377,13 +382,20 @@ struct WeChatImageSmoke {
         try check((try? reloadedProtectedStore.repairUnavailableImage(
             id: firstPlaceholder.id, data: Data("invalid".utf8), type: selectedImage.type
         )) == nil, "无效图片被写入占位项")
-        try check(reloadedProtectedStore.rootEntries.first?.groupMembers[1].kind == .unavailableImage,
+        try check(reloadedProtectedStore.rootEntries[1].kind == .unavailableImage,
                   "补全失败却修改了原占位项")
         try reloadedProtectedStore.repairUnavailableImage(
             id: firstPlaceholder.id, data: selectedImage.data, type: selectedImage.type
         )
-        guard let partlyRepaired = reloadedProtectedStore.rootEntries.first,
-              partlyRepaired.groupMemberIDs == originalMemberIDs,
+        try check(reloadedProtectedStore.rootEntries.map(\.kind) ==
+                  [.text, .image, .unavailableImage],
+                  "部分补全后应继续分别显示文字、图片和缺图提示")
+        guard var partlyRepaired = reloadedProtectedStore.entries.first(where: { $0.kind == .group })
+        else { throw WeChatImageTestError.failed("部分补全后原成员关系丢失") }
+        partlyRepaired.groupMembers = partlyRepaired.groupMemberIDs.compactMap { id in
+            reloadedProtectedStore.entries.first(where: { $0.id == id })
+        }
+        guard partlyRepaired.groupMemberIDs == originalMemberIDs,
               partlyRepaired.groupMembers.map(\.kind) == [.text, .image, .unavailableImage],
               partlyRepaired.groupMembers[1].copyCount == firstPlaceholder.copyCount,
               partlyRepaired.groupMembers[1].createdAt == firstPlaceholder.createdAt,

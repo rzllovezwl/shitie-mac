@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import ImageIO
 
 struct RichTextSourceFiles: Equatable {
     let rtf: URL?
@@ -73,7 +74,8 @@ enum TextPreviewRenderer {
         case .markdown:
             // Copying a rendered Markdown preview often puts plain text without
             // #/** markers beside RTF or HTML that carries the visible styling.
-            if !hasMarkdownSourceSyntax(raw), let rich = await loadSafeRichText(from: files) {
+            if !hasMarkdownSourceSyntax(raw),
+               let rich = await loadSafeRichText(from: files, maximumCharacters: limit) {
                 return TextPreviewResult(
                     text: clipped(themedMarkdown(rich.value), to: limit),
                     notice: rich.value.length > limit ? limitNotice : nil,
@@ -86,7 +88,7 @@ enum TextPreviewRenderer {
             let rendered = await background { PreviewTextBox(value: code(limited, language: language)) }
             return TextPreviewResult(text: rendered.value, notice: limitNotice, actualRichText: false)
         case .original:
-            if let rich = await loadSafeRichText(from: files) {
+            if let rich = await loadSafeRichText(from: files, maximumCharacters: limit) {
                 return TextPreviewResult(
                     text: clipped(rich.value, to: limit),
                     notice: rich.value.length > limit ? limitNotice : nil,
@@ -134,13 +136,16 @@ enum TextPreviewRenderer {
         return NSAttributedString(attributedString: display)
     }
 
-    private static func loadSafeRichText(from files: RichTextSourceFiles) async -> PreviewTextBox? {
+    private static func loadSafeRichText(
+        from files: RichTextSourceFiles, maximumCharacters: Int
+    ) async -> PreviewTextBox? {
         for (url, type) in [(files.rtfd, NSAttributedString.DocumentType.rtfd),
                             (files.rtf, .rtf)] {
             if Task.isCancelled { return nil }
             guard let url else { continue }
             if let rich = await background({
-                importRichText(at: url, type: type).map(PreviewTextBox.init(value:))
+                importRichText(at: url, type: type, maximumCharacters: maximumCharacters)
+                    .map(PreviewTextBox.init(value:))
             }) { return rich }
         }
         guard let htmlURL = files.html,
@@ -204,14 +209,120 @@ enum TextPreviewRenderer {
         return try? Data(contentsOf: url)
     }
 
-    private static func importRichText(at url: URL, type: NSAttributedString.DocumentType) -> NSAttributedString? {
+    private static func importRichText(
+        at url: URL, type: NSAttributedString.DocumentType, maximumCharacters: Int
+    ) -> NSAttributedString? {
         guard let data = readBounded(at: url, maximumBytes: maximumRichPreviewBytes),
               let rich = try? NSAttributedString(
                 data: data,
                 options: [.documentType: type],
                 documentAttributes: nil
               ), rich.length <= maximumPreviewCharacters else { return nil }
-        return onPaper(rich)
+        guard type == .rtf, !richContainsAttachment(rich) else { return onPaper(rich) }
+        let embeddedImages = extractEmbeddedRTFImages(from: data)
+        guard !embeddedImages.isEmpty else { return onPaper(rich) }
+        let thumbnail = maximumCharacters < maximumPreviewCharacters
+        let maximumSize = thumbnail ? CGSize(width: 160, height: 110) : CGSize(width: 430, height: 340)
+        let display = NSMutableAttributedString(string: "")
+        if !thumbnail { display.append(onPaper(rich)) }
+        for image in thumbnail ? Array(embeddedImages.prefix(1)) : embeddedImages {
+            guard let rendered = NSImage(data: image.data) else { continue }
+            let scale = min(1, maximumSize.width / image.width, maximumSize.height / image.height)
+            let attachment = NSTextAttachment()
+            attachment.image = rendered
+            attachment.bounds = CGRect(x: 0, y: 0, width: image.width * scale,
+                                       height: image.height * scale)
+            if !thumbnail { display.append(NSAttributedString(string: "\n")) }
+            display.append(NSAttributedString(attachment: attachment))
+            if thumbnail { display.append(NSAttributedString(string: "\n")) }
+        }
+        if thumbnail { display.append(onPaper(rich)) }
+        return NSAttributedString(attributedString: display)
+    }
+
+    private static func richContainsAttachment(_ rich: NSAttributedString) -> Bool {
+        var found = false
+        rich.enumerateAttribute(.attachment, in: NSRange(location: 0, length: rich.length)) {
+            value, _, stop in
+            if value != nil { found = true; stop.pointee = true }
+        }
+        return found
+    }
+
+    private struct EmbeddedImage {
+        let data: Data
+        let width: CGFloat
+        let height: CGFloat
+    }
+
+    /// Office RTF can contain image bytes even when AppKit's RTF importer
+    /// drops its picture attachment. Only decode bytes embedded in the RTF.
+    private static func extractEmbeddedRTFImages(from data: Data) -> [EmbeddedImage] {
+        let bytes = [UInt8](data)
+        let signatures: [(magic: [UInt8], control: String)] = [
+            (Array("89504e470d0a1a0a".utf8), "\\pngblip"),
+            (Array("ffd8ff".utf8), "\\jpegblip")
+        ]
+        var images: [EmbeddedImage] = []
+        var totalPixels: Int64 = 0
+        var cursor = 0
+        while cursor < bytes.count && images.count < 4 {
+            guard let signature = signatures.first(where: { signature in
+                cursor + signature.magic.count <= bytes.count &&
+                    zip(bytes[cursor..<(cursor + signature.magic.count)], signature.magic)
+                        .allSatisfy { actual, expected in
+                            actual == expected || (65...70).contains(actual) && actual + 32 == expected
+                        }
+            }) else { cursor += 1; continue }
+            let start = cursor
+            let contextStart = max(0, start - 4_096)
+            let context = String(decoding: bytes[contextStart..<start], as: UTF8.self).lowercased()
+            guard let pict = context.range(of: "\\pict", options: .backwards),
+                  context[pict.lowerBound...].contains(signature.control) else {
+                cursor += signature.magic.count
+                continue
+            }
+            var decoded = Data()
+            var upper: UInt8?
+            while cursor < bytes.count {
+                let value = bytes[cursor]
+                if let nibble = hexNibble(value) {
+                    if let high = upper {
+                        decoded.append(high << 4 | nibble)
+                        upper = nil
+                        if decoded.count > 4 * 1_024 * 1_024 {
+                            cursor += 1
+                            break
+                        }
+                    } else { upper = nibble }
+                } else if value == 32 || value == 9 || value == 10 || value == 13 {
+                    // RTF writers may wrap a hexadecimal picture stream.
+                } else { break }
+                cursor += 1
+            }
+            guard !decoded.isEmpty, decoded.count <= 4 * 1_024 * 1_024,
+                  let source = CGImageSourceCreateWithData(decoded as CFData, nil),
+                  CGImageSourceGetCount(source) > 0,
+                  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? Int,
+                  let height = properties[kCGImagePropertyPixelHeight] as? Int,
+                  width > 0, height > 0,
+                  width <= 20_000, height <= 20_000,
+                  totalPixels + Int64(width) * Int64(height) <= 40_000_000,
+                  CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else { continue }
+            totalPixels += Int64(width) * Int64(height)
+            images.append(EmbeddedImage(data: decoded, width: CGFloat(width), height: CGFloat(height)))
+        }
+        return images
+    }
+
+    private static func hexNibble(_ value: UInt8) -> UInt8? {
+        switch value {
+        case 48...57: value - 48
+        case 65...70: value - 65 + 10
+        case 97...102: value - 97 + 10
+        default: nil
+        }
     }
 
     private static func onPaper(_ rich: NSAttributedString) -> NSAttributedString {

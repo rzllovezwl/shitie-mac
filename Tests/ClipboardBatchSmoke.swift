@@ -95,6 +95,32 @@ struct ClipboardBatchSmoke {
         try check(textStore.rootEntries.count == 1 && textStore.rootEntries[0].kind != .group,
                   "成员删除后单成员组未解散")
 
+        let officeBoard = NSPasteboard.withUniqueName()
+        defer { officeBoard.releaseGlobally() }
+        let officeItem = NSPasteboardItem()
+        let officeRTF = Data("{\\rtf1\\ansi Office text}".utf8)
+        _ = officeItem.setString("Office text", forType: .string)
+        _ = officeItem.setData(
+            officeRTF, forType: NSPasteboard.PasteboardType("com.trolltech.anymime.text--rtf")
+        )
+        officeBoard.clearContents()
+        try check(officeBoard.writeObjects([officeItem]), "无法构造 WPS 富文本剪贴板")
+        let officeCaptured = try capture(officeBoard)
+        guard officeCaptured.count == 1,
+              case .richText(let officeText, let capturedRTF, _, _) = officeCaptured[0],
+              officeText == "Office text", capturedRTF == officeRTF else {
+            throw ClipboardBatchTestError.failed("WPS 专有 RTF 未随文字一起保存")
+        }
+        let officeStore = ClipboardHistoryStore(directory: root.appendingPathComponent("office"), defaults: defaults)
+        _ = try officeStore.addCapturedBatch(
+            officeCaptured, sourceAppName: "WPS Office", sourceAppBundleID: nil,
+            automaticallyGroup: true
+        )
+        try check(officeStore.rootEntries.count == 1 &&
+                  officeStore.rootEntries[0].hasRichText &&
+                  officeStore.richTextData(for: officeStore.rootEntries[0]).rtf == officeRTF,
+                  "WPS 图文记录被拆分，或内嵌 RTF 未持久保存")
+
         let panelStore = ClipboardHistoryStore(directory: root.appendingPathComponent("panel"), defaults: defaults)
         _ = try panelStore.addText("面板一", sourceAppName: "笔记")
         let panelFirst = panelStore.entries[0]

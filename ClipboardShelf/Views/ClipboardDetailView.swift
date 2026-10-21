@@ -225,7 +225,9 @@ struct ClipboardDetailView: View {
                                     in: RoundedRectangle(cornerRadius: 10)
                                 )
                             if let notice = previewResult.notice {
-                                Text(notice).foregroundStyle(.orange)
+                                Text(notice)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(.primary)
                             }
                         } else {
                             ProgressView("正在准备预览…")

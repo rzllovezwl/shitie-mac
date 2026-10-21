@@ -90,6 +90,61 @@ struct TextPreviewSmoke {
         try check(format.contains("18 pt") && format.contains("加粗") && format.contains("文字 #"),
                   "选中文字的字号、字重或颜色说明缺失")
 
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 8, pixelsHigh: 8,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .calibratedRGB,
+            bytesPerRow: 0, bitsPerPixel: 0
+        ) else { throw PreviewTestError.failed("无法创建内嵌图片测试数据") }
+        let sampleColor = NSColor(calibratedRed: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+        for y in 0..<8 {
+            for x in 0..<8 { bitmap.setColor(sampleColor, atX: x, y: y) }
+        }
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw PreviewTestError.failed("无法生成内嵌 PNG")
+        }
+        let pictureHex = png.map { String(format: "%02x", $0) }.joined()
+        // An unsupported Office destination makes AppKit drop the native
+        // attachment even though the PNG bytes remain inside the RTF.
+        let pictureRTF = "{\\rtf1\\ansi Office text\\par {\\*\\officepicture{\\pict\\pngblip\n\(pictureHex)\n}}}"
+        let pictureURL = folder.appendingPathComponent("office-picture.rtf")
+        try Data(pictureRTF.utf8).write(to: pictureURL)
+        guard let nativeRTF = try? NSAttributedString(
+            data: Data(pictureRTF.utf8),
+            options: [.documentType: NSAttributedString.DocumentType.rtf],
+            documentAttributes: nil
+        ) else { throw PreviewTestError.failed("无法解析测试用 Office RTF") }
+        var nativeAttachments = 0
+        nativeRTF.enumerateAttribute(
+            .attachment, in: NSRange(location: 0, length: nativeRTF.length)
+        ) { value, _, _ in
+            if value != nil { nativeAttachments += 1 }
+        }
+        try check(nativeAttachments == 0, "测试夹具未覆盖 AppKit 丢失图片的场景")
+        let pictureFiles = RichTextSourceFiles(rtf: pictureURL, html: nil, rtfd: nil)
+        let picturePreview = await TextPreviewRenderer.render(
+            mode: .original, raw: "Office text", files: pictureFiles
+        )
+        var pictureAttachments = 0
+        picturePreview.text.enumerateAttribute(
+            .attachment, in: NSRange(location: 0, length: picturePreview.text.length)
+        ) { value, _, _ in
+            if value != nil { pictureAttachments += 1 }
+        }
+        try check(picturePreview.actualRichText && picturePreview.text.string.contains("Office text") &&
+                  pictureAttachments == 1, "Word/WPS RTF 内嵌图片未在原格式预览中显示")
+        let pictureCard = await TextPreviewRenderer.render(
+            mode: .original, raw: "Office text", files: pictureFiles, maximumCharacters: 1_200
+        )
+        var cardAttachments = 0
+        pictureCard.text.enumerateAttribute(
+            .attachment, in: NSRange(location: 0, length: pictureCard.text.length)
+        ) { value, _, _ in
+            if value != nil { cardAttachments += 1 }
+        }
+        try check(pictureCard.text.string.contains("Office text") && cardAttachments == 1,
+                  "带内嵌图片的富文本卡片没有同时显示文字和图片")
+
         let safeHTML = folder.appendingPathComponent("safe.html")
         try Data("<html><body><strong>安全预览</strong></body></html>".utf8).write(to: safeHTML)
         let htmlPreview = await TextPreviewRenderer.render(
