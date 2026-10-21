@@ -765,7 +765,7 @@ final class AppController: ObservableObject {
         guard let payload = ClipboardImageCapture.captureUserSelectedImage(
             at: url, maximumBytes: store.maximumImageBytes
         ) else {
-            statusMessage = "无法读取所选图片，或图片超过 15 MB；原分组没有修改。"
+            statusMessage = "无法读取所选图片，或图片超过 15 MB；原记录没有修改。"
             return
         }
         confirmImageRepair(payload, for: entry, source: url.lastPathComponent)
@@ -775,12 +775,12 @@ final class AppController: ObservableObject {
         _ payload: ClipboardImagePayload, for entry: ClipboardEntry, source: String
     ) {
         guard let image = NSImage(data: payload.data) else {
-            statusMessage = "图片内容无法预览；原分组没有修改。"
+            statusMessage = "图片内容无法预览；原记录没有修改。"
             return
         }
         let alert = NSAlert()
-        alert.messageText = "用这张图片补全原分组？"
-        alert.informativeText = "\(source)\n确认后，图片将保存在 ClipHoook 中，并填回原来的分组位置。"
+        alert.messageText = "用这张图片补全这条记录？"
+        alert.informativeText = "\(source)\n确认后，图片将保存在 ClipHoook 中，并填回原来的位置。"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "确认补全")
         alert.addButton(withTitle: "取消")
@@ -916,9 +916,13 @@ final class AppController: ObservableObject {
                 maximumRichTextBytes: store.maximumRichTextBytes,
                 allowUnavailableImagePlaceholder: allowUnavailableImagePlaceholder
             )
+            let copiedFromWeChat = ClipboardImageCapture.isWeChatSource(
+                name: sourceApp, bundleID: sourceBundleID
+            )
             let added = try store.addCapturedBatch(
                 captured, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID,
-                automaticallyGroup: ClipboardGroupingPreference.isEnabled()
+                automaticallyGroup: ClipboardGroupingPreference.isEnabled() && !copiedFromWeChat,
+                preserveOccurrences: copiedFromWeChat
             )
             clipboardChanges.markHandled(changeCount: changeCount)
             let missingImageCount = captured.reduce(into: 0) { count, item in

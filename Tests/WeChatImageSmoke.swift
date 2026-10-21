@@ -100,10 +100,9 @@ struct WeChatImageSmoke {
             mixed, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
             automaticallyGroup: true
         ), "微信图文批次未能保存")
-        try check(mixedStore.rootEntries.count == 1 &&
-                  mixedStore.rootEntries[0].kind == .group &&
-                  mixedStore.rootEntries[0].groupMembers.map(\.kind) == [.image, .text],
-                  "微信图文没有显示为包含两项的分组")
+        try check(mixedStore.rootEntries.map(\.kind) == [.image, .text] &&
+                  mixedStore.entries.contains(where: { $0.kind == .group }),
+                  "旧微信图文分组没有拆成独立卡片")
 
         let combinedMessage = NSPasteboardItem()
         _ = combinedMessage.setString(temporaryImage.absoluteString, forType: .fileURL)
@@ -190,10 +189,19 @@ struct WeChatImageSmoke {
         )
         try check(try multiStore.addCapturedBatch(
             multiSelection, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: true
+            automaticallyGroup: false, preserveOccurrences: true
         ), "微信多选图片和文字未保存")
-        try check(multiStore.rootEntries.first?.groupMembers.map(\.kind) == [.image, .image, .text],
-                  "微信多选图片和文字未显示为三项分组")
+        try check(multiStore.rootEntries.map(\.kind) == [.image, .image, .text] &&
+                  Set(multiStore.rootEntries.map(\.id)).count == 3,
+                  "相同图片的微信多选没有按原顺序显示为三张独立卡片")
+        let copiedIDs = multiStore.rootEntries.map(\.id)
+        _ = try multiStore.addCapturedBatch(
+            multiSelection, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
+            automaticallyGroup: false, preserveOccurrences: true
+        )
+        try check(multiStore.rootEntries.map(\.id) == copiedIDs &&
+                  multiStore.rootEntries.allSatisfy { $0.copyCount == 2 },
+                  "重复复制同一批微信消息未更新三张卡片的复制次数")
 
         // Current WeChat exports an entire selection as one item with an
         // ordered JSON array under this private Qt pasteboard type. Its public
@@ -236,10 +244,11 @@ struct WeChatImageSmoke {
         )
         try check(try actualStore.addCapturedBatch(
             actualFormat, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: true
+            automaticallyGroup: false, preserveOccurrences: true
         ), "微信实际多选格式未能保存")
-        try check(actualStore.rootEntries.first?.groupMembers.map(\.kind) == [.image, .image, .text],
-                  "微信实际多选格式未形成三项分组")
+        try check(actualStore.rootEntries.map(\.kind) == [.image, .image, .text] &&
+                  !actualStore.entries.contains(where: { $0.kind == .group }),
+                  "新复制的微信多选没有按原顺序保存为独立卡片")
 
         // The private selection can appear before WeChat finishes writing its
         // temporary image. A later read of the same pasteboard change must work.
@@ -310,6 +319,34 @@ struct WeChatImageSmoke {
             try? FileManager.default.setAttributes([.posixPermissions: 0o600],
                                                     ofItemAtPath: secondProtectedFile.path)
         }
+        let threeMessages = NSPasteboardItem()
+        let threeMessageSelection = try JSONSerialization.data(withJSONObject: [
+            ["text": "第一条文字"],
+            ["file": protectedFile.path, "text": "图片占位说明"],
+            ["text": "第三条文字"]
+        ])
+        _ = threeMessages.setData(threeMessageSelection, forType: NSPasteboard.PasteboardType(
+            "com.trolltech.anymime.x-xwechat-multiselect-copy"
+        ))
+        mixedBoard.clearContents()
+        try check(mixedBoard.writeObjects([threeMessages]), "无法构造三条微信消息")
+        let threeCaptured = try ClipboardBatchCapture.capture(
+            from: mixedBoard, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
+            maximumImageBytes: 1_000_000, maximumTextBytes: 1_000_000,
+            maximumRichTextBytes: 1_000_000
+        )
+        let threeStore = ClipboardHistoryStore(
+            directory: root.appendingPathComponent("ThreeMessages"), defaults: defaults
+        )
+        try check(try threeStore.addCapturedBatch(
+            threeCaptured, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
+            automaticallyGroup: false, preserveOccurrences: true
+        ), "三条微信消息未能保存")
+        try check(threeStore.rootEntries.map(\.kind) == [.text, .unavailableImage, .text] &&
+                  threeStore.rootEntries[0].text == "第一条文字" &&
+                  threeStore.rootEntries[2].text == "第三条文字",
+                  "文字、缺图、文字没有按微信消息顺序显示为三张卡片")
+
         let protectedItem = NSPasteboardItem()
         let protectedSelection = try JSONSerialization.data(withJSONObject: [
             ["text": "先复制的文字"],
@@ -412,11 +449,18 @@ struct WeChatImageSmoke {
         let repairedStore = ClipboardHistoryStore(
             directory: root.appendingPathComponent("ProtectedHistory"), defaults: defaults
         )
-        guard let repairedGroup = repairedStore.rootEntries.first,
-              repairedGroup.groupMemberIDs == originalMemberIDs,
+        try check(repairedStore.rootEntries.map(\.kind) == [.text, .image, .image],
+                  "全部补全后微信消息仍应逐条显示")
+        guard var repairedGroup = repairedStore.entries.first(where: { $0.kind == .group }),
+              repairedGroup.groupMemberIDs == originalMemberIDs
+        else { throw WeChatImageTestError.failed("重启后补全图片的原成员关系丢失") }
+        repairedGroup.groupMembers = repairedGroup.groupMemberIDs.compactMap { id in
+            repairedStore.entries.first(where: { $0.id == id })
+        }
+        guard repairedGroup.groupMembers.count == 3,
               repairedGroup.groupMembers.map(\.kind) == [.text, .image, .image],
               repairedGroup.groupMembers.allSatisfy({ $0.kind != .image || repairedStore.imageURL(for: $0) != nil })
-        else { throw WeChatImageTestError.failed("重启后补全的图片或分组顺序丢失") }
+        else { throw WeChatImageTestError.failed("重启后补全的图片或原顺序丢失") }
         try check(ClipboardPasteboardWriter.write(
             repairedGroup, from: repairedStore, to: unchangedBoard
         ), "全部补全后分组仍无法复制")

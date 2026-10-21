@@ -99,11 +99,15 @@ final class ClipboardHistoryStore {
 
     var rootEntries: [ClipboardEntry] {
         let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
-        // A group with a missing image cannot be copied as a unit. Show its
-        // members directly so the usable text and the missing-image notice
-        // remain separate cards. Keep the stored group for later repair.
+        // Show old WeChat multi-selections as individual messages too. A group
+        // with a missing image cannot be copied as a unit, so its usable
+        // members and missing-image notice also stay as separate cards.
+        // Keep stored groups so existing history and repair references survive.
         let visibleGroups = Set(entries.filter { group in
             group.kind == .group && group.groupMemberIDs.count > 1 &&
+                !ClipboardImageCapture.isWeChatSource(
+                    name: group.sourceAppName, bundleID: group.sourceAppBundleID
+                ) &&
                 group.groupMemberIDs.allSatisfy { id in
                     guard let member = byID[id] else { return false }
                     return member.kind != .unavailableImage
@@ -295,13 +299,16 @@ final class ClipboardHistoryStore {
         }
     }
 
-    func addText(_ text: String, sourceAppName: String?, sourceAppBundleID: String? = nil) throws -> Bool {
+    func addText(
+        _ text: String, sourceAppName: String?, sourceAppBundleID: String? = nil,
+        occurrence: Int = 0
+    ) throws -> Bool {
         guard !text.isEmpty else { return false }
         let data = Data(text.utf8)
         guard data.count <= maximumTextBytes else { return false }
         _ = try requiredDatabase()
         let kind: ClipboardEntry.Kind = Self.isWebLink(text) ? .link : .text
-        let digest = Self.digest(data: data, prefix: kind.rawValue)
+        let digest = Self.digest(data: data, prefix: Self.batchPrefix(kind.rawValue, occurrence: occurrence))
         if let old = entries.first(where: { $0.digest == digest }),
            !fileManager.fileExists(atPath: textURL(for: old.id).path) {
             try data.write(to: textURL(for: old.id), options: .atomic)
@@ -326,10 +333,13 @@ final class ClipboardHistoryStore {
         return true
     }
 
-    func addImage(_ data: Data, type: String, sourceAppName: String?, sourceAppBundleID: String? = nil) throws -> Bool {
+    func addImage(
+        _ data: Data, type: String, sourceAppName: String?, sourceAppBundleID: String? = nil,
+        occurrence: Int = 0
+    ) throws -> Bool {
         guard !data.isEmpty, data.count <= maximumImageBytes else { return false }
         _ = try requiredDatabase()
-        let digest = Self.digest(data: data, prefix: "image")
+        let digest = Self.digest(data: data, prefix: Self.batchPrefix("image", occurrence: occurrence))
         if let old = entries.first(where: { $0.digest == digest }) {
             guard let name = old.imageFileName, safeFileName(name) else {
                 throw ClipboardHistoryStoreError.invalidSavedRecord
@@ -363,7 +373,8 @@ final class ClipboardHistoryStore {
 
     func addRichText(
         _ text: String, rtf: Data?, html: Data?, rtfd: Data?,
-        sourceAppName: String?, sourceAppBundleID: String? = nil
+        sourceAppName: String?, sourceAppBundleID: String? = nil,
+        occurrence: Int = 0
     ) throws -> Bool {
         guard !text.isEmpty else { return false }
         let textData = Data(text.utf8)
@@ -371,7 +382,8 @@ final class ClipboardHistoryStore {
         let formats = [rtf, html, rtfd]
         guard formats.contains(where: { $0 != nil }),
               formats.reduce(0, { $0 + ($1?.count ?? 0) }) <= maximumRichTextBytes else {
-            return try addText(text, sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID)
+            return try addText(text, sourceAppName: sourceAppName,
+                               sourceAppBundleID: sourceAppBundleID, occurrence: occurrence)
         }
         _ = try requiredDatabase()
         var signature = Data("rich-text\0".utf8)
@@ -387,7 +399,7 @@ final class ClipboardHistoryStore {
             }
         }
         let kind: ClipboardEntry.Kind = Self.isWebLink(text) ? .link : .text
-        let digest = Self.digest(data: signature, prefix: "rich")
+        let digest = Self.digest(data: signature, prefix: Self.batchPrefix("rich", occurrence: occurrence))
         if let old = entries.first(where: { $0.digest == digest }) {
             let oldText = textURL(for: old.id)
             if !fileManager.fileExists(atPath: oldText.path) { try textData.write(to: oldText, options: .atomic) }
@@ -430,12 +442,14 @@ final class ClipboardHistoryStore {
     }
 
     func addFileReference(
-        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String? = nil
+        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String? = nil,
+        occurrence: Int = 0
     ) throws -> Bool {
         guard fileURL.isFileURL else { return false }
         _ = try requiredDatabase()
         let normalized = fileURL.standardizedFileURL
-        let digest = Self.digest(data: Data(normalized.path.utf8), prefix: "file-reference")
+        let digest = Self.digest(data: Data(normalized.path.utf8),
+                                 prefix: Self.batchPrefix("file-reference", occurrence: occurrence))
         if try refreshExisting(digest: digest, sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID) {
             _ = try pruneEntries()
             return true
@@ -470,12 +484,14 @@ final class ClipboardHistoryStore {
     }
 
     func addUnavailableImageReference(
-        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String?
+        _ fileURL: URL, sourceAppName: String?, sourceAppBundleID: String?,
+        occurrence: Int = 0
     ) throws -> Bool {
         guard fileURL.isFileURL else { return false }
         _ = try requiredDatabase()
         let normalized = fileURL.standardizedFileURL
-        let digest = Self.digest(data: Data(normalized.path.utf8), prefix: "unavailable-image")
+        let digest = Self.digest(data: Data(normalized.path.utf8),
+                                 prefix: Self.batchPrefix("unavailable-image", occurrence: occurrence))
         if try refreshExisting(digest: digest, sourceAppName: sourceAppName,
                                sourceAppBundleID: sourceAppBundleID) {
             _ = try pruneEntries()
@@ -535,39 +551,54 @@ final class ClipboardHistoryStore {
     func addCapturedBatch(
         _ captured: [ClipboardCapturedItem],
         sourceAppName: String?, sourceAppBundleID: String?,
-        automaticallyGroup: Bool
+        automaticallyGroup: Bool, preserveOccurrences: Bool = false
     ) throws -> Bool {
         guard !captured.isEmpty else { return false }
         let database = try requiredDatabase()
         let before = entries
         let oldIDs = Set(before.map(\.id))
         var savedIDs: [UUID] = []
+        var occurrencesBySignature: [Int: Int] = [:]
+        let occurrences = captured.map { item -> Int in
+            guard preserveOccurrences else { return 0 }
+            let signature = Self.batchOccurrenceSignature(for: item)
+            let occurrence = occurrencesBySignature[signature, default: 0]
+            occurrencesBySignature[signature] = occurrence + 1
+            return occurrence
+        }
         batchInProgress = true
         do {
             try database.transaction {
                 // Every add inserts its result at the front. Reverse processing
                 // retains the source application's item order on the shelf.
-                for item in captured.reversed() {
+                for index in captured.indices.reversed() {
+                    let item = captured[index]
+                    let occurrence = occurrences[index]
                     let added: Bool
                     switch item {
                     case .text(let text):
                         added = try addText(text, sourceAppName: sourceAppName,
-                                            sourceAppBundleID: sourceAppBundleID)
+                                            sourceAppBundleID: sourceAppBundleID,
+                                            occurrence: occurrence)
                     case .richText(let text, let rtf, let html, let rtfd):
                         added = try addRichText(text, rtf: rtf, html: html, rtfd: rtfd,
                                                 sourceAppName: sourceAppName,
-                                                sourceAppBundleID: sourceAppBundleID)
+                                                sourceAppBundleID: sourceAppBundleID,
+                                                occurrence: occurrence)
                     case .image(let data, let type):
                         added = try addImage(data, type: type, sourceAppName: sourceAppName,
-                                             sourceAppBundleID: sourceAppBundleID)
+                                             sourceAppBundleID: sourceAppBundleID,
+                                             occurrence: occurrence)
                     case .unavailableImage(let url):
                         added = try addUnavailableImageReference(
                             url, sourceAppName: sourceAppName,
-                            sourceAppBundleID: sourceAppBundleID
+                            sourceAppBundleID: sourceAppBundleID,
+                            occurrence: occurrence
                         )
                     case .fileReference(let url):
                         added = try addFileReference(url, sourceAppName: sourceAppName,
-                                                      sourceAppBundleID: sourceAppBundleID)
+                                                      sourceAppBundleID: sourceAppBundleID,
+                                                      occurrence: occurrence)
                     }
                     guard added, let id = lastInsertedID else {
                         throw ClipboardHistoryStoreError.invalidBatch
@@ -592,6 +623,35 @@ final class ClipboardHistoryStore {
         batchInProgress = false
         _ = try pruneEntries()
         return true
+    }
+
+    private static func batchPrefix(_ prefix: String, occurrence: Int) -> String {
+        occurrence == 0 ? prefix : "\(prefix)-batch-occurrence-\(occurrence)"
+    }
+
+    private static func batchOccurrenceSignature(for item: ClipboardCapturedItem) -> Int {
+        var hasher = Hasher()
+        switch item {
+        case .text(let text):
+            hasher.combine(0)
+            hasher.combine(text)
+        case .richText(let text, let rtf, let html, let rtfd):
+            hasher.combine(1)
+            hasher.combine(text)
+            hasher.combine(rtf)
+            hasher.combine(html)
+            hasher.combine(rtfd)
+        case .image(let data, _):
+            hasher.combine(2)
+            hasher.combine(data)
+        case .unavailableImage(let url):
+            hasher.combine(3)
+            hasher.combine(url.standardizedFileURL.path)
+        case .fileReference(let url):
+            hasher.combine(4)
+            hasher.combine(url.standardizedFileURL.path)
+        }
+        return hasher.finalize()
     }
 
     /// Counts a successful in-panel multi-copy and optionally creates a group.
