@@ -104,7 +104,10 @@ private struct DetailPreviewPanelView: View {
     @ObservedObject var motion: PreviewBubbleMotion
 
     var body: some View {
-        let currentEntry = model.entries.first(where: { $0.id == entry.id }) ?? entry
+        let currentEntry = model.entries.first(where: { $0.id == entry.id })
+            ?? model.entries.lazy.filter { $0.kind == .group }
+                .flatMap(\.groupMembers).first(where: { $0.id == entry.id })
+            ?? entry
         GeometryReader { geometry in
         ClipboardDetailView(
             entry: currentEntry,
@@ -120,6 +123,8 @@ private struct DetailPreviewPanelView: View {
             onCopy: { model.copy(currentEntry) },
             onRevealOriginalFile: { model.revealOriginalFile(currentEntry) },
             onSaveFileCopy: { model.saveFileCopy(currentEntry) },
+            onRepairFromRecentCopy: { model.repairUnavailableImageUsingRecentCopy(currentEntry) },
+            onChooseRepairImage: { model.repairUnavailableImageChoosingFile(currentEntry) },
             onDelete: { model.confirmDelete(currentEntry) },
             onImagePreviewAppear: { model.activatePanelForImagePreview() },
             onClose: onClose
@@ -650,6 +655,22 @@ final class PanelController {
                 abs(detailPanel.frame.minY - frame.minY) > 1 ||
                 abs(detailPanel.frame.width - frame.width) > 1 ||
                 abs(detailPanel.frame.height - frame.height) > 1 else { return }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            detailPanel.animator().setFrame(frame, display: true)
+        }
+        detailPanel.invalidateShadow()
+    }
+
+    func refreshDetailLayout(for entry: ClipboardEntry) {
+        guard previewedEntry?.id == entry.id,
+              let detailPanel, detailPanel.isVisible else { return }
+        previewedEntry = entry
+        previewImagePixelSize = entry.isImagePreviewable
+            ? model.imagePreviewPixelSize(for: entry) : nil
+        let frame = previewFrame(for: entry)
+        updatePreviewTail(for: frame, animated: true)
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)

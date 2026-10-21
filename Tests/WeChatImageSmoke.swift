@@ -365,6 +365,49 @@ struct WeChatImageSmoke {
         try check(ClipboardPasteboardWriter.write(
             protectedGroup.groupMembers[0], from: reloadedProtectedStore, to: unchangedBoard
         ), "组内文字无法单独复制")
+        guard let selectedImage = ClipboardImageCapture.captureUserSelectedImage(
+            at: secondFile, maximumBytes: 1_000_000
+        ) else { throw WeChatImageTestError.failed("用户选择的有效图片无法补全") }
+        let originalMemberIDs = protectedGroup.groupMemberIDs
+        let firstPlaceholder = protectedGroup.groupMembers[1]
+        let secondPlaceholder = protectedGroup.groupMembers[2]
+        try check((try? reloadedProtectedStore.repairUnavailableImage(
+            id: firstPlaceholder.id, data: Data(), type: selectedImage.type
+        )) == nil, "空图片被写入占位项")
+        try check((try? reloadedProtectedStore.repairUnavailableImage(
+            id: firstPlaceholder.id, data: Data("invalid".utf8), type: selectedImage.type
+        )) == nil, "无效图片被写入占位项")
+        try check(reloadedProtectedStore.rootEntries.first?.groupMembers[1].kind == .unavailableImage,
+                  "补全失败却修改了原占位项")
+        try reloadedProtectedStore.repairUnavailableImage(
+            id: firstPlaceholder.id, data: selectedImage.data, type: selectedImage.type
+        )
+        guard let partlyRepaired = reloadedProtectedStore.rootEntries.first,
+              partlyRepaired.groupMemberIDs == originalMemberIDs,
+              partlyRepaired.groupMembers.map(\.kind) == [.text, .image, .unavailableImage],
+              partlyRepaired.groupMembers[1].copyCount == firstPlaceholder.copyCount,
+              partlyRepaired.groupMembers[1].createdAt == firstPlaceholder.createdAt,
+              let repairedURL = reloadedProtectedStore.imageURL(for: partlyRepaired.groupMembers[1]),
+              try Data(contentsOf: repairedURL) == jpeg else {
+            throw WeChatImageTestError.failed("补全图片没有保留原分组顺序、记录信息或像素")
+        }
+        try check(!ClipboardPasteboardWriter.write(
+            partlyRepaired, from: reloadedProtectedStore, to: unchangedBoard
+        ), "仍有缺失图片的分组被错误地当作完整内容复制")
+        try reloadedProtectedStore.repairUnavailableImage(
+            id: secondPlaceholder.id, data: selectedImage.data, type: selectedImage.type
+        )
+        let repairedStore = ClipboardHistoryStore(
+            directory: root.appendingPathComponent("ProtectedHistory"), defaults: defaults
+        )
+        guard let repairedGroup = repairedStore.rootEntries.first,
+              repairedGroup.groupMemberIDs == originalMemberIDs,
+              repairedGroup.groupMembers.map(\.kind) == [.text, .image, .image],
+              repairedGroup.groupMembers.allSatisfy({ $0.kind != .image || repairedStore.imageURL(for: $0) != nil })
+        else { throw WeChatImageTestError.failed("重启后补全的图片或分组顺序丢失") }
+        try check(ClipboardPasteboardWriter.write(
+            repairedGroup, from: repairedStore, to: unchangedBoard
+        ), "全部补全后分组仍无法复制")
         try FileManager.default.setAttributes([.posixPermissions: 0o600],
                                               ofItemAtPath: protectedFile.path)
         try FileManager.default.setAttributes([.posixPermissions: 0o600],
@@ -401,6 +444,9 @@ struct WeChatImageSmoke {
 
         let badFile = root.appendingPathComponent("invalid.jpg")
         try Data("not an image".utf8).write(to: badFile)
+        try check(ClipboardImageCapture.captureUserSelectedImage(
+            at: badFile, maximumBytes: 1_000_000
+        ) == nil, "伪装成图片的本地文件被用于补全")
         try check(ClipboardImageCapture.capture(
             items: [], fileURLs: [badFile], sourceAppName: "微信",
             sourceAppBundleID: nil, maximumBytes: 1_000_000

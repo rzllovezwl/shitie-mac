@@ -16,6 +16,8 @@ struct ClipboardDetailView: View {
     let onCopy: () -> Void
     let onRevealOriginalFile: () -> Bool
     let onSaveFileCopy: () -> Void
+    let onRepairFromRecentCopy: () -> Void
+    let onChooseRepairImage: () -> Void
     let onDelete: () -> Void
     let onImagePreviewAppear: () -> Void
     let onClose: () -> Void
@@ -46,7 +48,7 @@ struct ClipboardDetailView: View {
     }
 
     private var imageSourceKey: String {
-        "\(entry.id.uuidString)-\(entry.fileCopyName ?? "")"
+        "\(entry.id.uuidString)-\(entry.kind.rawValue)-\(entry.imageFileName ?? "")-\(entry.fileCopyName ?? "")"
     }
 
     private var suggestedPreviewMode: TextPreviewMode {
@@ -122,23 +124,22 @@ struct ClipboardDetailView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if entry.kind == .unavailableImage {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 10) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 32))
                         Text("这张图片未保存")
                             .font(.system(size: 17, weight: .semibold))
-                        Text("微信只提供了临时文件地址，macOS 拒绝 ClipHoook 读取图片内容。\n这条记录不能预览或复制图片；请在微信中单独复制这张图片。")
+                        Text("请在微信中单独复制这张图片，再点“用最近复制的图片”；也可以选择本地图片补全。")
                             .font(.system(size: 12))
                             .multilineTextAlignment(.center)
-                        if let fileName = entry.fileName {
-                            Text(fileName)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                        HStack(spacing: 8) {
+                            Button("用最近复制的图片…", action: onRepairFromRecentCopy)
+                                .buttonStyle(.borderedProminent)
+                            Button("选择图片…", action: onChooseRepairImage)
+                                .buttonStyle(.bordered)
                         }
+                        .controlSize(.small)
                     }
-                    .foregroundStyle(.orange)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if isImageFileReference, let fileReferenceImage {
                     ZoomableImageView(

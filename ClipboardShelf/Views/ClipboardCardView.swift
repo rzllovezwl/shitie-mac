@@ -120,7 +120,7 @@ struct ClipboardCardView: View {
                     .help(entry.kind == .text ? "根据内容推测的文本类型" : entry.contentTypeLabel)
                 Spacer(minLength: 4)
                 if let groupMembership {
-                    Text("组内 \(groupMembership.position)/\(groupMembership.count)")
+                    Text("\(groupMembership.position)/\(groupMembership.count)")
                         .font(.system(size: 9 * textScale, weight: .semibold))
                         .padding(.horizontal, 5 * textScale)
                         .padding(.vertical, 2 * textScale)

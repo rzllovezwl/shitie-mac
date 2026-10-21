@@ -737,6 +737,76 @@ final class AppController: ObservableObject {
         }
     }
 
+    func repairUnavailableImageUsingRecentCopy(_ entry: ClipboardEntry) {
+        guard entry.kind == .unavailableImage else { return }
+        guard let candidate = store.entries.first(where: {
+            $0.kind == .image && $0.createdAt > entry.createdAt
+        }), let url = store.imageURL(for: candidate),
+              let data = try? Data(contentsOf: url),
+              let type = candidate.imagePasteboardType else {
+            statusMessage = "请先在微信中单独复制这张图片，再返回这里补全。"
+            return
+        }
+        confirmImageRepair(
+            ClipboardImagePayload(data: data, type: type), for: entry,
+            source: "最近复制的图片 · \(candidate.sourceAppName ?? "未知来源")"
+        )
+    }
+
+    func repairUnavailableImageChoosingFile(_ entry: ClipboardEntry) {
+        guard entry.kind == .unavailableImage else { return }
+        let picker = NSOpenPanel()
+        picker.message = "选择要补入这条记录的图片"
+        picker.allowedContentTypes = [.image]
+        picker.canChooseDirectories = false
+        picker.allowsMultipleSelection = false
+        guard panel.performModalInteraction({ picker.runModal() }) == .OK,
+              let url = picker.url else { return }
+        guard let payload = ClipboardImageCapture.captureUserSelectedImage(
+            at: url, maximumBytes: store.maximumImageBytes
+        ) else {
+            statusMessage = "无法读取所选图片，或图片超过 15 MB；原分组没有修改。"
+            return
+        }
+        confirmImageRepair(payload, for: entry, source: url.lastPathComponent)
+    }
+
+    private func confirmImageRepair(
+        _ payload: ClipboardImagePayload, for entry: ClipboardEntry, source: String
+    ) {
+        guard let image = NSImage(data: payload.data) else {
+            statusMessage = "图片内容无法预览；原分组没有修改。"
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "用这张图片补全原分组？"
+        alert.informativeText = "\(source)\n确认后，图片将保存在 ClipHoook 中，并填回原来的分组位置。"
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "确认补全")
+        alert.addButton(withTitle: "取消")
+        let preview = NSImageView(frame: NSRect(x: 0, y: 0, width: 280, height: 180))
+        preview.image = image
+        preview.imageScaling = .scaleProportionallyUpOrDown
+        alert.accessoryView = preview
+        guard panel.performModalInteraction({ alert.runModal() }) == .alertFirstButtonReturn else {
+            return
+        }
+        do {
+            try store.repairUnavailableImage(id: entry.id, data: payload.data, type: payload.type)
+            entries = store.rootEntries
+            refreshStorageSizes()
+            statusMessage = nil
+            showToast("图片已补全")
+            if let updated = store.entries.first(where: { $0.id == entry.id }) {
+                panel.refreshDetailLayout(for: updated)
+            }
+        } catch {
+            entries = store.rootEntries
+            refreshStorageSizes()
+            statusMessage = "补全图片失败：\(error.localizedDescription)"
+        }
+    }
+
     private func retryHotKeyIfNeeded() {
         guard !isRecordingShortcut, !hotKeyRegistered,
               Date().timeIntervalSince(lastHotKeyAttempt) >= 5 else { return }

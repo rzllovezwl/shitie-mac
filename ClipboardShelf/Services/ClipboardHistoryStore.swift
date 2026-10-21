@@ -29,7 +29,7 @@ final class FilePreviewAccess {
 enum ClipboardHistoryStoreError: LocalizedError {
     case unavailable, invalidLegacyRecord, migrationVerificationFailed, legacyWriterDetected, invalidSavedRecord
     case fileReferenceUnavailable, fileCopyExceedsLimit, unsupportedFile
-    case invalidBatch
+    case invalidBatch, invalidRepairImage
 
     var errorDescription: String? {
         switch self {
@@ -42,6 +42,7 @@ enum ClipboardHistoryStoreError: LocalizedError {
         case .fileCopyExceedsLimit: "文件副本超过设置的最大存储量；请调整上限后重试。"
         case .unsupportedFile: "目前只能保存普通文件的副本，不能保存文件夹或符号链接。"
         case .invalidBatch: "这批内容无法完整保存；系统剪贴板内容未受影响。"
+        case .invalidRepairImage: "图片不可用或超过 15 MB，原分组没有修改。"
         }
     }
 }
@@ -332,15 +333,7 @@ final class ClipboardHistoryStore {
             return true
         }
         let id = UUID()
-        let imageExtension: String
-        switch type {
-        case "public.png": imageExtension = "png"
-        case "public.jpeg": imageExtension = "jpg"
-        case "public.heic": imageExtension = "heic"
-        case "com.compuserve.gif": imageExtension = "gif"
-        default: imageExtension = "tiff"
-        }
-        let name = "\(id.uuidString).\(imageExtension)"
+        let name = "\(id.uuidString).\(Self.imageExtension(for: type))"
         let url = imagesDirectory.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
         let date = now()
@@ -491,6 +484,39 @@ final class ClipboardHistoryStore {
         insertNewestFirst(entry)
         _ = try pruneEntries()
         return true
+    }
+
+    /// Fill an unavailable image in place. Keeping its ID preserves every
+    /// group's ordered membership and the original copy date/count.
+    func repairUnavailableImage(
+        id: UUID, data: Data, type: String
+    ) throws {
+        guard !data.isEmpty, data.count <= maximumImageBytes,
+              NSImage(data: data) != nil else {
+            throw ClipboardHistoryStoreError.invalidRepairImage
+        }
+        guard let index = entries.firstIndex(where: { $0.id == id && $0.kind == .unavailableImage }) else {
+            throw ClipboardHistoryStoreError.invalidSavedRecord
+        }
+        let original = entries[index]
+        let name = "\(id.uuidString).\(Self.imageExtension(for: type))"
+        let url = imagesDirectory.appendingPathComponent(name)
+        // The protected source path is not an image payload. The replacement
+        // points only at bytes saved in our own image directory.
+        let replacement = ClipboardEntry(
+            id: id, createdAt: original.createdAt,
+            firstCopiedAt: original.firstCopiedAt, copyCount: original.copyCount,
+            kind: .image, text: nil, imageFileName: name,
+            imagePasteboardType: type,
+            digest: Self.digest(data: data, prefix: "repaired-image-\(id.uuidString)"),
+            byteCount: data.count, sourceAppName: original.sourceAppName,
+            sourceAppBundleID: original.sourceAppBundleID
+        )
+        try data.write(to: url, options: .atomic)
+        do { try requiredDatabase().upsert(replacement) }
+        catch { try? fileManager.removeItem(at: url); throw error }
+        entries[index] = replacement
+        _ = try pruneEntries()
     }
 
     /// Saves one external clipboard change as a unit. Existing payloads keep
@@ -981,6 +1007,16 @@ final class ClipboardHistoryStore {
     private static func digest(data: Data, prefix: String) -> String {
         let hash = SHA256.hash(data: Data(prefix.utf8) + data)
         return hash.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func imageExtension(for type: String) -> String {
+        switch type {
+        case "public.png": "png"
+        case "public.jpeg": "jpg"
+        case "public.heic": "heic"
+        case "com.compuserve.gif": "gif"
+        default: "tiff"
+        }
     }
 
     private static func isWebLink(_ value: String) -> Bool {
