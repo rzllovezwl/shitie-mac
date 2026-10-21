@@ -59,7 +59,7 @@ struct ClipboardEntry: Identifiable, Equatable {
         case .image:
             return "图片"
         case .unavailableImage:
-            return "未保存图片：\(fileName ?? "微信图片")"
+            return "图片未保存"
         case .fileReference:
             return fileName ?? "文件"
         case .link:

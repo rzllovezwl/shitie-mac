@@ -100,9 +100,9 @@ struct WeChatImageSmoke {
             mixed, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
             automaticallyGroup: true
         ), "微信图文批次未能保存")
-        try check(mixedStore.rootEntries.map(\.kind) == [.image, .text] &&
-                  mixedStore.entries.contains(where: { $0.kind == .group }),
-                  "旧微信图文分组没有拆成独立卡片")
+        try check(mixedStore.rootEntries.map(\.kind) == [.group] &&
+                  mixedStore.rootEntries[0].groupMembers.map(\.kind) == [.image, .text],
+                  "微信图文没有按原顺序显示为可展开分组")
 
         let combinedMessage = NSPasteboardItem()
         _ = combinedMessage.setString(temporaryImage.absoluteString, forType: .fileURL)
@@ -189,19 +189,20 @@ struct WeChatImageSmoke {
         )
         try check(try multiStore.addCapturedBatch(
             multiSelection, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: false, preserveOccurrences: true
+            automaticallyGroup: true, preserveOccurrences: true
         ), "微信多选图片和文字未保存")
-        try check(multiStore.rootEntries.map(\.kind) == [.image, .image, .text] &&
-                  Set(multiStore.rootEntries.map(\.id)).count == 3,
-                  "相同图片的微信多选没有按原顺序显示为三张独立卡片")
-        let copiedIDs = multiStore.rootEntries.map(\.id)
+        try check(multiStore.rootEntries.map(\.kind) == [.group] &&
+                  multiStore.rootEntries[0].groupMembers.map(\.kind) == [.image, .image, .text] &&
+                  Set(multiStore.rootEntries[0].groupMemberIDs).count == 3,
+                  "相同图片的微信多选没有在分组中保留三个独立项目")
+        let copiedIDs = multiStore.rootEntries[0].groupMemberIDs
         _ = try multiStore.addCapturedBatch(
             multiSelection, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: false, preserveOccurrences: true
+            automaticallyGroup: true, preserveOccurrences: true
         )
-        try check(multiStore.rootEntries.map(\.id) == copiedIDs &&
-                  multiStore.rootEntries.allSatisfy { $0.copyCount == 2 },
-                  "重复复制同一批微信消息未更新三张卡片的复制次数")
+        try check(multiStore.rootEntries[0].groupMemberIDs == copiedIDs &&
+                  multiStore.rootEntries[0].groupMembers.allSatisfy { $0.copyCount == 2 },
+                  "重复复制同一批微信消息未更新组内项目的复制次数")
 
         // Current WeChat exports an entire selection as one item with an
         // ordered JSON array under this private Qt pasteboard type. Its public
@@ -244,11 +245,11 @@ struct WeChatImageSmoke {
         )
         try check(try actualStore.addCapturedBatch(
             actualFormat, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: false, preserveOccurrences: true
+            automaticallyGroup: true, preserveOccurrences: true
         ), "微信实际多选格式未能保存")
-        try check(actualStore.rootEntries.map(\.kind) == [.image, .image, .text] &&
-                  !actualStore.entries.contains(where: { $0.kind == .group }),
-                  "新复制的微信多选没有按原顺序保存为独立卡片")
+        try check(actualStore.rootEntries.map(\.kind) == [.group] &&
+                  actualStore.rootEntries[0].groupMembers.map(\.kind) == [.image, .image, .text],
+                  "新复制的微信多选没有按原顺序保存为分组")
 
         // The private selection can appear before WeChat finishes writing its
         // temporary image. A later read of the same pasteboard change must work.
@@ -340,47 +341,14 @@ struct WeChatImageSmoke {
         )
         try check(try threeStore.addCapturedBatch(
             threeCaptured, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
-            automaticallyGroup: false, preserveOccurrences: true
+            automaticallyGroup: true, preserveOccurrences: true
         ), "三条微信消息未能保存")
-        try check(threeStore.rootEntries.map(\.kind) == [.text, .unavailableImage, .text] &&
-                  threeStore.rootEntries[0].text == "第一条文字" &&
-                  threeStore.rootEntries[2].text == "第三条文字",
-                  "文字、缺图、文字没有按微信消息顺序显示为三张卡片")
-        let threeIDs = threeStore.lastCapturedBatchIDs
-        try check(threeIDs == threeStore.rootEntries.map(\.id),
-                  "微信批次保存后的项目 ID 没有对应原消息顺序")
-        let repairStart = Date()
-        let oneMissing = WeChatImageRepairSession.Target(
-            id: threeIDs[1], sourcePath: threeStore.rootEntries[1].filePath!, position: 2
-        )
-        let oneImageSession = WeChatImageRepairSession(
-            targets: [oneMissing], changeCount: 100, createdAt: repairStart
-        )
-        try check(oneImageSession.decision(
-            copiedFilePaths: [], newChangeCount: 101,
-            now: repairStart.addingTimeInterval(30)
-        ) == .automatic(oneMissing), "下一次单独复制的微信图片未匹配唯一缺图卡片")
-        try check(oneImageSession.decision(
-            copiedFilePaths: ["/different/image.jpg"], newChangeCount: 101,
-            now: repairStart.addingTimeInterval(30)
-        ) == .confirm([oneMissing]), "图片路径明确不符时不应自动填入占位项")
-        try check(oneImageSession.decision(
-            copiedFilePaths: [], newChangeCount: 100,
-            now: repairStart.addingTimeInterval(30)
-        ) == .expired, "没有新复制动作却触发了自动补全")
-        try check(oneImageSession.decision(
-            copiedFilePaths: [], newChangeCount: 101,
-            now: repairStart.addingTimeInterval(180)
-        ) == .confirm([oneMissing]), "过了即时复制窗口仍未经确认自动补全")
-        try check(oneImageSession.decision(
-            copiedFilePaths: [], newChangeCount: 101,
-            now: repairStart.addingTimeInterval(601)
-        ) == .expired, "过期批次仍被自动关联")
-        try threeStore.repairUnavailableImage(id: threeIDs[1], data: jpeg, type: UTType.jpeg.identifier)
-        try check(threeStore.rootEntries.map(\.kind) == [.text, .image, .text] &&
-                  threeStore.rootEntries.map(\.id) == threeIDs &&
-                  threeStore.rootEntries.count == 3,
-                  "单独复制图片补全后没有保留原来的三张卡片")
+        try check(threeStore.rootEntries.map(\.kind) == [.group] &&
+                  threeStore.rootEntries[0].groupMembers.map(\.kind) ==
+                  [.text, .unavailableImage, .text] &&
+                  threeStore.rootEntries[0].groupMembers[0].text == "第一条文字" &&
+                  threeStore.rootEntries[0].groupMembers[2].text == "第三条文字",
+                  "文字、缺图占位符、文字没有按微信消息顺序保留在分组中")
 
         let protectedItem = NSPasteboardItem()
         let protectedSelection = try JSONSerialization.data(withJSONObject: [
@@ -418,101 +386,35 @@ struct WeChatImageSmoke {
         let reloadedProtectedStore = ClipboardHistoryStore(
             directory: root.appendingPathComponent("ProtectedHistory"), defaults: defaults
         )
-        try check(reloadedProtectedStore.rootEntries.map(\.kind) ==
+        try check(reloadedProtectedStore.rootEntries.map(\.kind) == [.group],
+                  "缺图批次重启后没有显示为可展开分组")
+        let protectedGroup = reloadedProtectedStore.rootEntries[0]
+        try check(protectedGroup.groupMembers.map(\.kind) ==
                   [.text, .unavailableImage, .unavailableImage],
-                  "缺图批次仍显示为分组，或分开展示的原始顺序错误")
-        guard var protectedGroup = reloadedProtectedStore.entries.first(where: { $0.kind == .group })
-        else { throw WeChatImageTestError.failed("不完整批次的成员关系未保存") }
-        protectedGroup.groupMembers = protectedGroup.groupMemberIDs.compactMap { id in
-            reloadedProtectedStore.entries.first(where: { $0.id == id })
-        }
-        try check(protectedGroup.groupMembers.map(\.kind) == [.text, .unavailableImage, .unavailableImage],
-                  "重启后微信不完整批次的成员丢失")
-        try check(ClipboardFilterInventory(entries: reloadedProtectedStore.rootEntries).count(for: .image) == 2,
-                  "图片筛选没有显示两张独立的未保存图片")
+                  "重启后微信分组中的图片占位符或原消息顺序丢失")
+        try check(ClipboardFilterInventory(entries: reloadedProtectedStore.rootEntries).count(for: .image) == 1 &&
+                  ClipboardFilter.image.matches(protectedGroup),
+                  "图片筛选没有包含带缺图占位符的分组")
         let unchangedBoard = NSPasteboard.withUniqueName()
         defer { unchangedBoard.releaseGlobally() }
         unchangedBoard.clearContents()
         _ = unchangedBoard.setString("原有内容", forType: .string)
         try check(!ClipboardPasteboardWriter.write(
             protectedGroup, from: reloadedProtectedStore, to: unchangedBoard
-        ), "不完整分组被错误地当作完整图片复制")
+        ), "包含占位符的分组被错误地当作完整内容复制")
         try check(unchangedBoard.string(forType: .string) == "原有内容",
                   "复制不完整分组改写了系统剪贴板")
         try check(ClipboardPasteboardWriter.write(
             protectedGroup.groupMembers[0], from: reloadedProtectedStore, to: unchangedBoard
         ), "组内文字无法单独复制")
-        guard let selectedImage = ClipboardImageCapture.captureUserSelectedImage(
-            at: secondFile, maximumBytes: 1_000_000
-        ) else { throw WeChatImageTestError.failed("用户选择的有效图片无法补全") }
-        let originalMemberIDs = protectedGroup.groupMemberIDs
-        let firstPlaceholder = protectedGroup.groupMembers[1]
-        let secondPlaceholder = protectedGroup.groupMembers[2]
-        let twoMissing = WeChatImageRepairSession(
-            targets: [
-                .init(id: firstPlaceholder.id, sourcePath: firstPlaceholder.filePath!, position: 2),
-                .init(id: secondPlaceholder.id, sourcePath: secondPlaceholder.filePath!, position: 3)
-            ], changeCount: 200, createdAt: repairStart
-        )
-        try check(twoMissing.decision(
-            copiedFilePaths: [secondPlaceholder.filePath!], newChangeCount: 201,
-            now: repairStart.addingTimeInterval(30)
-        ) == .automatic(twoMissing.targets[1]), "微信图片路径未精确匹配对应占位项")
-        try check(twoMissing.decision(
-            copiedFilePaths: [], newChangeCount: 201,
-            now: repairStart.addingTimeInterval(30)
-        ) == .confirm(twoMissing.targets), "多张缺图时不应猜测图片对应位置")
-        try check((try? reloadedProtectedStore.repairUnavailableImage(
-            id: firstPlaceholder.id, data: Data(), type: selectedImage.type
-        )) == nil, "空图片被写入占位项")
-        try check((try? reloadedProtectedStore.repairUnavailableImage(
-            id: firstPlaceholder.id, data: Data("invalid".utf8), type: selectedImage.type
-        )) == nil, "无效图片被写入占位项")
-        try check(reloadedProtectedStore.rootEntries[1].kind == .unavailableImage,
-                  "补全失败却修改了原占位项")
-        try reloadedProtectedStore.repairUnavailableImage(
-            id: firstPlaceholder.id, data: selectedImage.data, type: selectedImage.type
-        )
-        try check(reloadedProtectedStore.rootEntries.map(\.kind) ==
-                  [.text, .image, .unavailableImage],
-                  "部分补全后应继续分别显示文字、图片和缺图提示")
-        guard var partlyRepaired = reloadedProtectedStore.entries.first(where: { $0.kind == .group })
-        else { throw WeChatImageTestError.failed("部分补全后原成员关系丢失") }
-        partlyRepaired.groupMembers = partlyRepaired.groupMemberIDs.compactMap { id in
-            reloadedProtectedStore.entries.first(where: { $0.id == id })
-        }
-        guard partlyRepaired.groupMemberIDs == originalMemberIDs,
-              partlyRepaired.groupMembers.map(\.kind) == [.text, .image, .unavailableImage],
-              partlyRepaired.groupMembers[1].copyCount == firstPlaceholder.copyCount,
-              partlyRepaired.groupMembers[1].createdAt == firstPlaceholder.createdAt,
-              let repairedURL = reloadedProtectedStore.imageURL(for: partlyRepaired.groupMembers[1]),
-              try Data(contentsOf: repairedURL) == jpeg else {
-            throw WeChatImageTestError.failed("补全图片没有保留原分组顺序、记录信息或像素")
-        }
-        try check(!ClipboardPasteboardWriter.write(
-            partlyRepaired, from: reloadedProtectedStore, to: unchangedBoard
-        ), "仍有缺失图片的分组被错误地当作完整内容复制")
-        try reloadedProtectedStore.repairUnavailableImage(
-            id: secondPlaceholder.id, data: selectedImage.data, type: selectedImage.type
-        )
-        let repairedStore = ClipboardHistoryStore(
-            directory: root.appendingPathComponent("ProtectedHistory"), defaults: defaults
-        )
-        try check(repairedStore.rootEntries.map(\.kind) == [.text, .image, .image],
-                  "全部补全后微信消息仍应逐条显示")
-        guard var repairedGroup = repairedStore.entries.first(where: { $0.kind == .group }),
-              repairedGroup.groupMemberIDs == originalMemberIDs
-        else { throw WeChatImageTestError.failed("重启后补全图片的原成员关系丢失") }
-        repairedGroup.groupMembers = repairedGroup.groupMemberIDs.compactMap { id in
-            repairedStore.entries.first(where: { $0.id == id })
-        }
-        guard repairedGroup.groupMembers.count == 3,
-              repairedGroup.groupMembers.map(\.kind) == [.text, .image, .image],
-              repairedGroup.groupMembers.allSatisfy({ $0.kind != .image || repairedStore.imageURL(for: $0) != nil })
-        else { throw WeChatImageTestError.failed("重启后补全的图片或原顺序丢失") }
-        try check(ClipboardPasteboardWriter.write(
-            repairedGroup, from: repairedStore, to: unchangedBoard
-        ), "全部补全后分组仍无法复制")
+        try check(try reloadedProtectedStore.addImage(
+            jpeg, type: UTType.jpeg.identifier, sourceAppName: "微信"
+        ), "后来单独复制的微信图片未作为独立记录保存")
+        guard let unchangedGroup = reloadedProtectedStore.rootEntries.first(where: { $0.kind == .group })
+        else { throw WeChatImageTestError.failed("单独复制图片后原分组消失") }
+        try check(unchangedGroup.groupMembers.map(\.kind) ==
+                  [.text, .unavailableImage, .unavailableImage],
+                  "单独复制图片不应自动补全原分组占位符")
         try FileManager.default.setAttributes([.posixPermissions: 0o600],
                                               ofItemAtPath: protectedFile.path)
         try FileManager.default.setAttributes([.posixPermissions: 0o600],
@@ -549,9 +451,6 @@ struct WeChatImageSmoke {
 
         let badFile = root.appendingPathComponent("invalid.jpg")
         try Data("not an image".utf8).write(to: badFile)
-        try check(ClipboardImageCapture.captureUserSelectedImage(
-            at: badFile, maximumBytes: 1_000_000
-        ) == nil, "伪装成图片的本地文件被用于补全")
         try check(ClipboardImageCapture.capture(
             items: [], fileURLs: [badFile], sourceAppName: "微信",
             sourceAppBundleID: nil, maximumBytes: 1_000_000

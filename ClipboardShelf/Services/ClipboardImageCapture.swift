@@ -74,15 +74,6 @@ enum ClipboardImageCapture {
             || path.contains("/Library/Group Containers/"))
     }
 
-    /// An explicit Open Panel selection can provide access that the original
-    /// clipboard file URL did not. The same format and size checks apply.
-    static func captureUserSelectedImage(
-        at url: URL, maximumBytes: Int
-    ) -> ClipboardImagePayload? {
-        guard url.isFileURL, isImageFileURL(url) else { return nil }
-        return captureFile(at: url, maximumBytes: maximumBytes)
-    }
-
     private static func captureFile(at url: URL, maximumBytes: Int) -> ClipboardImagePayload? {
         let started = url.startAccessingSecurityScopedResource()
         defer { if started { url.stopAccessingSecurityScopedResource() } }

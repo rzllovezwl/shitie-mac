@@ -72,7 +72,6 @@ final class AppController: ObservableObject {
     private var activationCountAtLastPoll = 0
     private var lastPolledForegroundBundleID: String?
     private var activationObserver: NSObjectProtocol?
-    private var pendingWeChatImageRepair: WeChatImageRepairSession?
     private let filePreviewCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
         cache.totalCostLimit = 128 * 1_024 * 1_024
@@ -316,7 +315,9 @@ final class AppController: ObservableObject {
     func copy(_ entry: ClipboardEntry) {
         guard writeToPasteboard(entry, mode: defaultCopyMode(for: entry)) else {
             statusMessage = entry.containsUnavailableImage
-                ? "这次复制的图片未保存；请在微信中单独复制图片。"
+                ? (entry.kind == .group
+                   ? "组内有图片未保存，无法完整复制；展开后可单独复制其他项目。"
+                   : "这张图片未保存，无法复制。")
                 : entry.kind == .fileReference
                 ? "原文件和保存的副本都不可用；请重新选择文件。"
                 : "复制失败，原始内容可能已不可用。"
@@ -738,153 +739,6 @@ final class AppController: ObservableObject {
         }
     }
 
-    func repairUnavailableImageUsingRecentCopy(_ entry: ClipboardEntry) {
-        guard entry.kind == .unavailableImage else { return }
-        guard let candidate = store.entries.first(where: {
-            $0.kind == .image && $0.createdAt > entry.createdAt
-        }), let url = store.imageURL(for: candidate),
-              let data = try? Data(contentsOf: url),
-              let type = candidate.imagePasteboardType else {
-            statusMessage = "请先在微信中单独复制这张图片，再返回这里补全。"
-            return
-        }
-        confirmImageRepair(
-            ClipboardImagePayload(data: data, type: type), for: entry,
-            source: "最近复制的图片 · \(candidate.sourceAppName ?? "未知来源")"
-        )
-    }
-
-    func repairUnavailableImageChoosingFile(_ entry: ClipboardEntry) {
-        guard entry.kind == .unavailableImage else { return }
-        let picker = NSOpenPanel()
-        picker.message = "选择要补入这条记录的图片"
-        picker.allowedContentTypes = [.image]
-        picker.canChooseDirectories = false
-        picker.allowsMultipleSelection = false
-        guard panel.performModalInteraction({ picker.runModal() }) == .OK,
-              let url = picker.url else { return }
-        guard let payload = ClipboardImageCapture.captureUserSelectedImage(
-            at: url, maximumBytes: store.maximumImageBytes
-        ) else {
-            statusMessage = "无法读取所选图片，或图片超过 15 MB；原记录没有修改。"
-            return
-        }
-        confirmImageRepair(payload, for: entry, source: url.lastPathComponent)
-    }
-
-    private func confirmImageRepair(
-        _ payload: ClipboardImagePayload, for entry: ClipboardEntry, source: String
-    ) {
-        guard let image = NSImage(data: payload.data) else {
-            statusMessage = "图片内容无法预览；原记录没有修改。"
-            return
-        }
-        let alert = NSAlert()
-        alert.messageText = "用这张图片补全这条记录？"
-        alert.informativeText = "\(source)\n确认后，图片将保存在 ClipHoook 中，并填回原来的位置。"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "确认补全")
-        alert.addButton(withTitle: "取消")
-        let preview = NSImageView(frame: NSRect(x: 0, y: 0, width: 280, height: 180))
-        preview.image = image
-        preview.imageScaling = .scaleProportionallyUpOrDown
-        alert.accessoryView = preview
-        guard panel.performModalInteraction({ alert.runModal() }) == .alertFirstButtonReturn else {
-            return
-        }
-        do {
-            try store.repairUnavailableImage(id: entry.id, data: payload.data, type: payload.type)
-            entries = store.rootEntries
-            refreshStorageSizes()
-            statusMessage = nil
-            showToast("图片已补全")
-            if let updated = store.entries.first(where: { $0.id == entry.id }) {
-                panel.refreshDetailLayout(for: updated)
-            }
-        } catch {
-            entries = store.rootEntries
-            refreshStorageSizes()
-            statusMessage = "补全图片失败：\(error.localizedDescription)"
-        }
-    }
-
-    private enum CopiedImageRepairOutcome {
-        case repaired
-        case declined
-        case failed(String)
-        case notApplicable
-    }
-
-    private func repairFromNextWeChatImage(
-        _ captured: [ClipboardCapturedItem], board: NSPasteboard, changeCount: Int
-    ) -> CopiedImageRepairOutcome {
-        guard let pending = pendingWeChatImageRepair, captured.count == 1,
-              case .image(let data, let type) = captured[0] else { return .notApplicable }
-        let activeTargets = pending.targets.filter { target in
-            store.entries.contains { $0.id == target.id && $0.kind == .unavailableImage }
-        }
-        let session = WeChatImageRepairSession(
-            targets: activeTargets, changeCount: pending.changeCount, createdAt: pending.createdAt
-        )
-        let filePaths = (board.readObjects(
-            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
-        ) ?? []).compactMap { ($0 as? URL)?.standardizedFileURL.path }
-        let decision = session.decision(
-            copiedFilePaths: filePaths, newChangeCount: changeCount
-        )
-        let target: WeChatImageRepairSession.Target
-        switch decision {
-        case .expired:
-            pendingWeChatImageRepair = nil
-            return .notApplicable
-        case .automatic(let matched):
-            target = matched
-        case .confirm(let choices):
-            guard let image = NSImage(data: data) else { return .notApplicable }
-            let alert = NSAlert()
-            alert.messageText = "将这张图片补到哪条记录？"
-            alert.informativeText = "微信批量复制没有提供图片内容。请核对图片，选择它在原批次中的位置。"
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "补全所选卡片")
-            alert.addButton(withTitle: "仅保存新图片")
-            let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 226))
-            let preview = NSImageView(frame: NSRect(x: 0, y: 42, width: 320, height: 180))
-            preview.image = image
-            preview.imageScaling = .scaleProportionallyUpOrDown
-            accessory.addSubview(preview)
-            let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 320, height: 30))
-            for choice in choices {
-                picker.addItem(withTitle: "第 \(choice.position) 项 · 未保存图片")
-            }
-            accessory.addSubview(picker)
-            alert.accessoryView = accessory
-            // Mark this pasteboard change before entering AppKit's nested modal
-            // run loop, where the clipboard timer can fire again.
-            clipboardChanges.markHandled(changeCount: changeCount)
-            guard panel.performModalInteraction({ alert.runModal() }) == .alertFirstButtonReturn
-            else { return .declined }
-            target = choices[picker.indexOfSelectedItem]
-        }
-        do {
-            try store.repairUnavailableImage(id: target.id, data: data, type: type)
-            let remaining = activeTargets.filter { $0.id != target.id }
-            pendingWeChatImageRepair = remaining.isEmpty ? nil : WeChatImageRepairSession(
-                targets: remaining, changeCount: changeCount, createdAt: pending.createdAt
-            )
-            entries = store.rootEntries
-            refreshStorageSizes(force: false)
-            statusMessage = remaining.isEmpty ? nil
-                : "还有 \(remaining.count) 张微信图片待补全；可在微信中单独复制。"
-            showToast("已补全第 \(target.position) 项图片")
-            if let updated = store.entries.first(where: { $0.id == target.id }) {
-                panel.refreshDetailLayout(for: updated)
-            }
-            return .repaired
-        } catch {
-            return .failed("自动补全图片失败：\(error.localizedDescription)")
-        }
-    }
-
     private func retryHotKeyIfNeeded() {
         guard !isRecordingShortcut, !hotKeyRegistered,
               Date().timeIntervalSince(lastHotKeyAttempt) >= 5 else { return }
@@ -933,7 +787,6 @@ final class AppController: ObservableObject {
         }
         guard change.shouldHandle || forceCapture else { return }
         if isPaused {
-            pendingWeChatImageRepair = nil
             clipboardChanges.markHandled(changeCount: changeCount)
             return
         }
@@ -964,7 +817,6 @@ final class AppController: ObservableObject {
                 && !weChatMultiSelection,
             excluded: excludedApplications
         ) else {
-            pendingWeChatImageRepair = nil
             clipboardChanges.markHandled(changeCount: changeCount)
             return
         }
@@ -999,53 +851,17 @@ final class AppController: ObservableObject {
             let copiedFromWeChat = ClipboardImageCapture.isWeChatSource(
                 name: sourceApp, bundleID: sourceBundleID
             )
-            let repairOutcome = copiedFromWeChat && !weChatMultiSelection
-                ? repairFromNextWeChatImage(captured, board: board, changeCount: changeCount)
-                : CopiedImageRepairOutcome.notApplicable
-            if case .repaired = repairOutcome {
-                clipboardChanges.markHandled(changeCount: changeCount)
-                return
-            }
             let added = try store.addCapturedBatch(
                 captured, sourceAppName: sourceApp, sourceAppBundleID: sourceBundleID,
-                automaticallyGroup: ClipboardGroupingPreference.isEnabled() && !copiedFromWeChat,
+                automaticallyGroup: ClipboardGroupingPreference.isEnabled(),
                 preserveOccurrences: copiedFromWeChat
             )
             clipboardChanges.markHandled(changeCount: changeCount)
             let missingImageCount = captured.reduce(into: 0) { count, item in
                 if case .unavailableImage = item { count += 1 }
             }
-            if copiedFromWeChat && missingImageCount > 0 && added {
-                let ids = store.lastCapturedBatchIDs
-                let targets = captured.enumerated().compactMap { index, item
-                    -> WeChatImageRepairSession.Target? in
-                    guard index < ids.count, case .unavailableImage(let url) = item,
-                          store.entries.contains(where: {
-                              $0.id == ids[index] && $0.kind == .unavailableImage
-                          }) else { return nil }
-                    return WeChatImageRepairSession.Target(
-                        id: ids[index], sourcePath: url.standardizedFileURL.path,
-                        position: index + 1
-                    )
-                }
-                pendingWeChatImageRepair = targets.isEmpty ? nil : WeChatImageRepairSession(
-                    targets: targets, changeCount: changeCount, createdAt: .now
-                )
-            } else if case .declined = repairOutcome {
-                // The user explicitly chose to save this as a separate image.
-                pendingWeChatImageRepair = nil
-            } else if case .failed = repairOutcome {
-                // Keep the original placeholder and save the separately copied
-                // image as a normal record when automatic repair fails.
-            } else {
-                pendingWeChatImageRepair = nil
-            }
-            if case .failed(let message) = repairOutcome {
-                statusMessage = message
-            } else {
-                statusMessage = missingImageCount == 0 ? nil
-                    : "已记录这次复制；\(missingImageCount) 张微信图片未保存，单独复制对应图片可自动补全。"
-            }
+            statusMessage = missingImageCount == 0 ? nil
+                : "已记录这次复制；\(missingImageCount) 张微信图片未保存，已显示占位符。"
             if added {
                 entries = store.rootEntries
                 refreshStorageSizes(force: false)

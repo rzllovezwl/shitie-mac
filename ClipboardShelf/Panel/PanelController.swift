@@ -123,8 +123,6 @@ private struct DetailPreviewPanelView: View {
             onCopy: { model.copy(currentEntry) },
             onRevealOriginalFile: { model.revealOriginalFile(currentEntry) },
             onSaveFileCopy: { model.saveFileCopy(currentEntry) },
-            onRepairFromRecentCopy: { model.repairUnavailableImageUsingRecentCopy(currentEntry) },
-            onChooseRepairImage: { model.repairUnavailableImageChoosingFile(currentEntry) },
             onDelete: { model.confirmDelete(currentEntry) },
             onImagePreviewAppear: { model.activatePanelForImagePreview() },
             onClose: onClose

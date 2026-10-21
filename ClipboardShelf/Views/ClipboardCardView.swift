@@ -151,11 +151,8 @@ struct ClipboardCardView: View {
                             .font(.system(size: 27 * textScale))
                         Text("微信图片未保存")
                             .font(.system(size: 13 * textScale, weight: .semibold))
-                        Text("可在微信中单独复制这张图片")
-                            .font(.system(size: 10 * textScale))
-                            .multilineTextAlignment(.center)
                     }
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if entry.kind == .fileReference {
                     FileReferencePreview(entry: entry, thumbnailURL: thumbnailURL)
@@ -408,7 +405,7 @@ struct ClipboardListRowView: View {
         switch entry.kind {
         case .group: "分组，点击展开"
         case .image: "图片记录，按空格查看预览"
-        case .unavailableImage: "微信未提供可读取的图片内容；可在微信中单独复制"
+        case .unavailableImage: "微信未提供可读取的图片内容"
         case .fileReference: entry.fileType ?? "仅保存原文件位置"
         case .text, .link:
             // This is a display-only excerpt; the saved text stays byte-for-byte intact.

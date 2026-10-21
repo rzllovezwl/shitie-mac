@@ -29,7 +29,7 @@ final class FilePreviewAccess {
 enum ClipboardHistoryStoreError: LocalizedError {
     case unavailable, invalidLegacyRecord, migrationVerificationFailed, legacyWriterDetected, invalidSavedRecord
     case fileReferenceUnavailable, fileCopyExceedsLimit, unsupportedFile
-    case invalidBatch, invalidRepairImage
+    case invalidBatch
 
     var errorDescription: String? {
         switch self {
@@ -42,7 +42,6 @@ enum ClipboardHistoryStoreError: LocalizedError {
         case .fileCopyExceedsLimit: "文件副本超过设置的最大存储量；请调整上限后重试。"
         case .unsupportedFile: "目前只能保存普通文件的副本，不能保存文件夹或符号链接。"
         case .invalidBatch: "这批内容无法完整保存；系统剪贴板内容未受影响。"
-        case .invalidRepairImage: "图片不可用或超过 15 MB，原分组没有修改。"
         }
     }
 }
@@ -90,7 +89,6 @@ final class ClipboardHistoryStore {
     private var database: ClipboardHistoryDatabase?
     private var batchInProgress = false
     private var lastInsertedID: UUID?
-    private(set) var lastCapturedBatchIDs: [UUID] = []
 
     private(set) var entries: [ClipboardEntry] = []
     private(set) var errorMessage: String?
@@ -100,19 +98,12 @@ final class ClipboardHistoryStore {
 
     var rootEntries: [ClipboardEntry] {
         let byID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
-        // Show old WeChat multi-selections as individual messages too. A group
-        // with a missing image cannot be copied as a unit, so its usable
-        // members and missing-image notice also stay as separate cards.
-        // Keep stored groups so existing history and repair references survive.
+        // Keep a copied batch visible as one expandable card even when a
+        // member's image bytes could not be read. The missing member remains a
+        // placeholder inside the group and cannot be copied as image data.
         let visibleGroups = Set(entries.filter { group in
             group.kind == .group && group.groupMemberIDs.count > 1 &&
-                !ClipboardImageCapture.isWeChatSource(
-                    name: group.sourceAppName, bundleID: group.sourceAppBundleID
-                ) &&
-                group.groupMemberIDs.allSatisfy { id in
-                    guard let member = byID[id] else { return false }
-                    return member.kind != .unavailableImage
-                }
+                group.groupMemberIDs.allSatisfy { byID[$0] != nil }
         }.map(\.id))
         var lastGroupedAt: [UUID: Date] = [:]
         for group in entries where visibleGroups.contains(group.id) {
@@ -514,39 +505,6 @@ final class ClipboardHistoryStore {
         return true
     }
 
-    /// Fill an unavailable image in place. Keeping its ID preserves every
-    /// group's ordered membership and the original copy date/count.
-    func repairUnavailableImage(
-        id: UUID, data: Data, type: String
-    ) throws {
-        guard !data.isEmpty, data.count <= maximumImageBytes,
-              NSImage(data: data) != nil else {
-            throw ClipboardHistoryStoreError.invalidRepairImage
-        }
-        guard let index = entries.firstIndex(where: { $0.id == id && $0.kind == .unavailableImage }) else {
-            throw ClipboardHistoryStoreError.invalidSavedRecord
-        }
-        let original = entries[index]
-        let name = "\(id.uuidString).\(Self.imageExtension(for: type))"
-        let url = imagesDirectory.appendingPathComponent(name)
-        // The protected source path is not an image payload. The replacement
-        // points only at bytes saved in our own image directory.
-        let replacement = ClipboardEntry(
-            id: id, createdAt: original.createdAt,
-            firstCopiedAt: original.firstCopiedAt, copyCount: original.copyCount,
-            kind: .image, text: nil, imageFileName: name,
-            imagePasteboardType: type,
-            digest: Self.digest(data: data, prefix: "repaired-image-\(id.uuidString)"),
-            byteCount: data.count, sourceAppName: original.sourceAppName,
-            sourceAppBundleID: original.sourceAppBundleID
-        )
-        try data.write(to: url, options: .atomic)
-        do { try requiredDatabase().upsert(replacement) }
-        catch { try? fileManager.removeItem(at: url); throw error }
-        entries[index] = replacement
-        _ = try pruneEntries()
-    }
-
     /// Saves one external clipboard change as a unit. Existing payloads keep
     /// their IDs, while the ordered group references them without copying data.
     func addCapturedBatch(
@@ -554,10 +512,7 @@ final class ClipboardHistoryStore {
         sourceAppName: String?, sourceAppBundleID: String?,
         automaticallyGroup: Bool, preserveOccurrences: Bool = false
     ) throws -> Bool {
-        guard !captured.isEmpty else {
-            lastCapturedBatchIDs = []
-            return false
-        }
+        guard !captured.isEmpty else { return false }
         let database = try requiredDatabase()
         let before = entries
         let oldIDs = Set(before.map(\.id))
@@ -619,14 +574,12 @@ final class ClipboardHistoryStore {
             }
         } catch {
             batchInProgress = false
-            lastCapturedBatchIDs = []
             let newEntries = entries.filter { !oldIDs.contains($0.id) }
             entries = before
             for entry in newEntries { try? removePayload(for: entry) }
             throw error
         }
         batchInProgress = false
-        lastCapturedBatchIDs = Array(savedIDs.reversed())
         _ = try pruneEntries()
         return true
     }

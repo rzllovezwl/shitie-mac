@@ -16,8 +16,6 @@ struct ClipboardDetailView: View {
     let onCopy: () -> Void
     let onRevealOriginalFile: () -> Bool
     let onSaveFileCopy: () -> Void
-    let onRepairFromRecentCopy: () -> Void
-    let onChooseRepairImage: () -> Void
     let onDelete: () -> Void
     let onImagePreviewAppear: () -> Void
     let onClose: () -> Void
@@ -129,16 +127,9 @@ struct ClipboardDetailView: View {
                             .font(.system(size: 32))
                         Text("这张图片未保存")
                             .font(.system(size: 17, weight: .semibold))
-                        Text("请在微信中单独复制这张图片，通常会自动补全；若未补全，可用最近复制的图片或选择本地图片。")
+                        Text("微信这次复制没有提供可读取的图片内容，因此这里只显示占位符。")
                             .font(.system(size: 12))
                             .multilineTextAlignment(.center)
-                        HStack(spacing: 8) {
-                            Button("用最近复制的图片…", action: onRepairFromRecentCopy)
-                                .buttonStyle(.borderedProminent)
-                            Button("选择图片…", action: onChooseRepairImage)
-                                .buttonStyle(.bordered)
-                        }
-                        .controlSize(.small)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if isImageFileReference, let fileReferenceImage {
