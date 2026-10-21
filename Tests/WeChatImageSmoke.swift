@@ -346,6 +346,41 @@ struct WeChatImageSmoke {
                   threeStore.rootEntries[0].text == "第一条文字" &&
                   threeStore.rootEntries[2].text == "第三条文字",
                   "文字、缺图、文字没有按微信消息顺序显示为三张卡片")
+        let threeIDs = threeStore.lastCapturedBatchIDs
+        try check(threeIDs == threeStore.rootEntries.map(\.id),
+                  "微信批次保存后的项目 ID 没有对应原消息顺序")
+        let repairStart = Date()
+        let oneMissing = WeChatImageRepairSession.Target(
+            id: threeIDs[1], sourcePath: threeStore.rootEntries[1].filePath!, position: 2
+        )
+        let oneImageSession = WeChatImageRepairSession(
+            targets: [oneMissing], changeCount: 100, createdAt: repairStart
+        )
+        try check(oneImageSession.decision(
+            copiedFilePaths: [], newChangeCount: 101,
+            now: repairStart.addingTimeInterval(30)
+        ) == .automatic(oneMissing), "下一次单独复制的微信图片未匹配唯一缺图卡片")
+        try check(oneImageSession.decision(
+            copiedFilePaths: ["/different/image.jpg"], newChangeCount: 101,
+            now: repairStart.addingTimeInterval(30)
+        ) == .confirm([oneMissing]), "图片路径明确不符时不应自动填入占位项")
+        try check(oneImageSession.decision(
+            copiedFilePaths: [], newChangeCount: 100,
+            now: repairStart.addingTimeInterval(30)
+        ) == .expired, "没有新复制动作却触发了自动补全")
+        try check(oneImageSession.decision(
+            copiedFilePaths: [], newChangeCount: 101,
+            now: repairStart.addingTimeInterval(180)
+        ) == .confirm([oneMissing]), "过了即时复制窗口仍未经确认自动补全")
+        try check(oneImageSession.decision(
+            copiedFilePaths: [], newChangeCount: 101,
+            now: repairStart.addingTimeInterval(601)
+        ) == .expired, "过期批次仍被自动关联")
+        try threeStore.repairUnavailableImage(id: threeIDs[1], data: jpeg, type: UTType.jpeg.identifier)
+        try check(threeStore.rootEntries.map(\.kind) == [.text, .image, .text] &&
+                  threeStore.rootEntries.map(\.id) == threeIDs &&
+                  threeStore.rootEntries.count == 3,
+                  "单独复制图片补全后没有保留原来的三张卡片")
 
         let protectedItem = NSPasteboardItem()
         let protectedSelection = try JSONSerialization.data(withJSONObject: [
@@ -413,6 +448,20 @@ struct WeChatImageSmoke {
         let originalMemberIDs = protectedGroup.groupMemberIDs
         let firstPlaceholder = protectedGroup.groupMembers[1]
         let secondPlaceholder = protectedGroup.groupMembers[2]
+        let twoMissing = WeChatImageRepairSession(
+            targets: [
+                .init(id: firstPlaceholder.id, sourcePath: firstPlaceholder.filePath!, position: 2),
+                .init(id: secondPlaceholder.id, sourcePath: secondPlaceholder.filePath!, position: 3)
+            ], changeCount: 200, createdAt: repairStart
+        )
+        try check(twoMissing.decision(
+            copiedFilePaths: [secondPlaceholder.filePath!], newChangeCount: 201,
+            now: repairStart.addingTimeInterval(30)
+        ) == .automatic(twoMissing.targets[1]), "微信图片路径未精确匹配对应占位项")
+        try check(twoMissing.decision(
+            copiedFilePaths: [], newChangeCount: 201,
+            now: repairStart.addingTimeInterval(30)
+        ) == .confirm(twoMissing.targets), "多张缺图时不应猜测图片对应位置")
         try check((try? reloadedProtectedStore.repairUnavailableImage(
             id: firstPlaceholder.id, data: Data(), type: selectedImage.type
         )) == nil, "空图片被写入占位项")

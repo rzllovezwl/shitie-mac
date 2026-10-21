@@ -90,6 +90,7 @@ final class ClipboardHistoryStore {
     private var database: ClipboardHistoryDatabase?
     private var batchInProgress = false
     private var lastInsertedID: UUID?
+    private(set) var lastCapturedBatchIDs: [UUID] = []
 
     private(set) var entries: [ClipboardEntry] = []
     private(set) var errorMessage: String?
@@ -553,7 +554,10 @@ final class ClipboardHistoryStore {
         sourceAppName: String?, sourceAppBundleID: String?,
         automaticallyGroup: Bool, preserveOccurrences: Bool = false
     ) throws -> Bool {
-        guard !captured.isEmpty else { return false }
+        guard !captured.isEmpty else {
+            lastCapturedBatchIDs = []
+            return false
+        }
         let database = try requiredDatabase()
         let before = entries
         let oldIDs = Set(before.map(\.id))
@@ -615,12 +619,14 @@ final class ClipboardHistoryStore {
             }
         } catch {
             batchInProgress = false
+            lastCapturedBatchIDs = []
             let newEntries = entries.filter { !oldIDs.contains($0.id) }
             entries = before
             for entry in newEntries { try? removePayload(for: entry) }
             throw error
         }
         batchInProgress = false
+        lastCapturedBatchIDs = Array(savedIDs.reversed())
         _ = try pruneEntries()
         return true
     }

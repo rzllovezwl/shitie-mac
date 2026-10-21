@@ -11,6 +11,43 @@ enum ClipboardCapturedItem {
     case fileReference(URL)
 }
 
+/// A later single-image copy can supply pixels that WeChat withheld from its
+/// multi-selection pasteboard item. Match the original URL when available;
+/// otherwise only the sole *immediately pending* image is safe to fill without
+/// asking which card the user meant.
+struct WeChatImageRepairSession {
+    struct Target: Equatable {
+        let id: UUID
+        let sourcePath: String
+        let position: Int
+    }
+
+    enum Decision: Equatable {
+        case automatic(Target)
+        case confirm([Target])
+        case expired
+    }
+
+    let targets: [Target]
+    let changeCount: Int
+    let createdAt: Date
+
+    func decision(
+        copiedFilePaths: [String], newChangeCount: Int, now: Date = .now
+    ) -> Decision {
+        let age = now.timeIntervalSince(createdAt)
+        guard newChangeCount != changeCount, age >= 0, age <= 600,
+              !targets.isEmpty else { return .expired }
+        let copied = Set(copiedFilePaths)
+        let matching = targets.filter { copied.contains($0.sourcePath) }
+        if matching.count == 1 { return .automatic(matching[0]) }
+        if targets.count == 1 && copied.isEmpty && age <= 120 {
+            return .automatic(targets[0])
+        }
+        return .confirm(targets)
+    }
+}
+
 enum ClipboardBatchCaptureError: LocalizedError {
     case oversizedText
     case incompleteBatch

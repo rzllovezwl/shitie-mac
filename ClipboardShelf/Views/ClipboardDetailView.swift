@@ -129,7 +129,7 @@ struct ClipboardDetailView: View {
                             .font(.system(size: 32))
                         Text("这张图片未保存")
                             .font(.system(size: 17, weight: .semibold))
-                        Text("请在微信中单独复制这张图片，再点“用最近复制的图片”；也可以选择本地图片补全。")
+                        Text("请在微信中单独复制这张图片，通常会自动补全；若未补全，可用最近复制的图片或选择本地图片。")
                             .font(.system(size: 12))
                             .multilineTextAlignment(.center)
                         HStack(spacing: 8) {
