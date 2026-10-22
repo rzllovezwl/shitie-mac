@@ -89,6 +89,9 @@ final class ClipboardHistoryStore {
     private var database: ClipboardHistoryDatabase?
     private var batchInProgress = false
     private var lastInsertedID: UUID?
+    /// Captured before the store creates its support directory. Existing users
+    /// should discover new features in the shelf without a first-run popup.
+    let isNewInstallation: Bool
 
     private(set) var entries: [ClipboardEntry] = []
     private(set) var errorMessage: String?
@@ -134,6 +137,7 @@ final class ClipboardHistoryStore {
         self.calendar = calendar
         let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         directory = overrideDirectory ?? support.appendingPathComponent("ClipboardShelf", isDirectory: true)
+        isNewInstallation = !fileManager.fileExists(atPath: directory.path)
         imagesDirectory = directory.appendingPathComponent("Images", isDirectory: true)
         contentDirectory = directory.appendingPathComponent("Content", isDirectory: true)
         richTextDirectory = directory.appendingPathComponent("RichText", isDirectory: true)

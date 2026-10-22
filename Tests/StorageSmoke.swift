@@ -31,6 +31,7 @@ struct StorageSmoke {
 
         let folder = root.appendingPathComponent("fresh")
         let store = ClipboardHistoryStore(directory: folder, defaults: defaults, now: clock)
+        try check(store.isNewInstallation, "新建资料库应标记为首次安装")
         let code = "    func main() {\n\tprint(\"hello\")\n    }\n\n"
         try check(try store.addText(code, sourceAppName: "编辑器", sourceAppBundleID: "app.editor"), "保存代码失败")
         let firstID = store.entries[0].id
@@ -82,6 +83,7 @@ struct StorageSmoke {
         let orphanURL = folder.appendingPathComponent("Images/orphan.png")
         try image.write(to: orphanURL)
         let reloaded = ClipboardHistoryStore(directory: folder, defaults: defaults, now: clock)
+        try check(!reloaded.isNewInstallation, "已有资料库重新启动不应触发首次引导")
         try check(reloaded.entries.count == 1 && reloaded.entries[0].text == "第二条", "重启恢复失败")
         let recoveredURL = folder.appendingPathComponent("UnreferencedRecovery/Images/orphan.png")
         try check(!FileManager.default.fileExists(atPath: orphanURL.path)
@@ -131,6 +133,7 @@ struct StorageSmoke {
         let oldJSON = try JSONEncoder().encode(fixtures)
         try oldJSON.write(to: legacyFolder.appendingPathComponent("history.json"))
         let migrated = ClipboardHistoryStore(directory: legacyFolder, defaults: defaults, now: clock)
+        try check(!migrated.isNewInstallation, "旧版 JSON 资料库迁移时不应触发首次引导")
         try check(migrated.errorMessage == nil && migrated.entries.count == 2, "旧 JSON 迁移失败")
         try check(migrated.entries.first(where: { $0.id == legacyTextID })?.text == code, "迁移破坏代码内容")
         try check(migrated.entries.allSatisfy { $0.firstCopiedAt == nil && $0.copyCount == nil }, "迁移编造旧时间或次数")

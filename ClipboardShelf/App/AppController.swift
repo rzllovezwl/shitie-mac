@@ -28,6 +28,12 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum PhoneScreenshotDiscovery {
+    static let onboardingHandledKey = "phoneScreenshotOnboardingHandledV1"
+    static let cardDismissedKey = "phoneScreenshotFeatureCardDismissedV1"
+    static let firstScreenshotReceivedKey = "phoneScreenshotFirstReceivedV1"
+}
+
 @MainActor
 final class AppController: ObservableObject {
     static let shared = AppController(store: ClipboardHistoryStore())
@@ -53,6 +59,7 @@ final class AppController: ObservableObject {
     @Published private(set) var recoveryBytes: Int64 = 0
     @Published private(set) var phoneScreenshotReceivingEnabled: Bool
     @Published private(set) var phoneScreenshotReceiverStatus = "未开启"
+    @Published private(set) var showsPhoneScreenshotFeatureCard: Bool
     let phoneScreenshotEndpoint: String
     @Published var isPaused: Bool {
         didSet { UserDefaults.standard.set(isPaused, forKey: "recordingPaused") }
@@ -84,6 +91,11 @@ final class AppController: ObservableObject {
 
     init(store: ClipboardHistoryStore) {
         self.store = store
+        showsPhoneScreenshotFeatureCard = !UserDefaults.standard.bool(
+            forKey: PhoneScreenshotDiscovery.cardDismissedKey
+        ) && !UserDefaults.standard.bool(
+            forKey: PhoneScreenshotDiscovery.firstScreenshotReceivedKey
+        )
         phoneScreenshotReceivingEnabled = UserDefaults.standard.bool(
             forKey: PhoneScreenshotReceiver.enabledKey
         )
@@ -136,6 +148,17 @@ final class AppController: ObservableObject {
         }
     }
 
+    func openPhoneScreenshotGuide() {
+        panel.hide(restorePreviousApplication: false) {
+            PhoneScreenshotGuideWindowController.shared.open()
+        }
+    }
+
+    func dismissPhoneScreenshotFeatureCard() {
+        UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.cardDismissedKey)
+        showsPhoneScreenshotFeatureCard = false
+    }
+
     func start() {
         guard !started else { return }
         started = true
@@ -167,6 +190,16 @@ final class AppController: ObservableObject {
         }
         timer = captureTimer
         RunLoop.main.add(captureTimer, forMode: .common)
+        if !UserDefaults.standard.bool(forKey: PhoneScreenshotDiscovery.onboardingHandledKey) {
+            if store.isNewInstallation {
+                DispatchQueue.main.async {
+                    PhoneScreenshotGuideWindowController.shared.open()
+                    UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.onboardingHandledKey)
+                }
+            } else {
+                UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.onboardingHandledKey)
+            }
+        }
     }
 
     func setPhoneScreenshotReceivingEnabled(_ enabled: Bool) {
@@ -236,6 +269,8 @@ final class AppController: ObservableObject {
             let saved = try store.importPhoneScreenshot(data, type: type)
             if saved {
                 entries = store.rootEntries
+                UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.firstScreenshotReceivedKey)
+                showsPhoneScreenshotFeatureCard = false
                 refreshStorageSizes(force: false)
                 CopySoundPlayer.shared.playIfEnabled()
                 statusMessage = "已收到 iPhone 截图"

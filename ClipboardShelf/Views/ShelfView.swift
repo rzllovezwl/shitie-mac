@@ -91,6 +91,7 @@ struct ShelfView: View {
     @State private var showsLayoutOptions = false
     @State private var resizeScrollTask: Task<Void, Never>?
     @State private var cardFrameTracker = ShelfCardFrameTracker()
+    @State private var hasNavigatedHistory = false
     @FocusState private var focusedTarget: FocusTarget?
 
     private var filteredEntries: [ClipboardEntry] {
@@ -102,6 +103,11 @@ struct ShelfView: View {
 
     private var visibleEntries: [DisplayedCard] {
         flattened(filteredEntries)
+    }
+
+    private var showsPhoneScreenshotFeatureCard: Bool {
+        model.showsPhoneScreenshotFeatureCard && selectedFilter == .all &&
+            searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func flattened(_ roots: [ClipboardEntry]) -> [DisplayedCard] {
@@ -270,6 +276,7 @@ struct ShelfView: View {
         detailCardKey = nil
         showsLayoutOptions = false
         expandedGroups = []
+        hasNavigatedHistory = false
         selectedID = model.entries.first?.id
         selectedCardKey = selectedID.map { "root-\($0)" }
         selectedIDs = selectedID.map { Set([$0]) } ?? []
@@ -484,7 +491,7 @@ struct ShelfView: View {
 
     private var historyStrip: some View {
         Group {
-            if filteredEntries.isEmpty {
+            if filteredEntries.isEmpty && !showsPhoneScreenshotFeatureCard {
                 VStack(spacing: 10) {
                     LucideIcon(model.entries.isEmpty ? .clipboard : .scanSearch, size: 34)
                         .foregroundStyle(.secondary)
@@ -539,6 +546,9 @@ struct ShelfView: View {
                         .onDisappear { resizeScrollTask?.cancel() }
                         .onChange(of: selectedID) { _, newID in
                             guard let newID else { return }
+                            // Keep the introduction card in view when the
+                            // history selection is initialized on opening.
+                            if showsPhoneScreenshotFeatureCard && !hasNavigatedHistory { return }
                             withAnimation(.easeOut(duration: 0.16)) {
                                 scrollProxy.scrollTo(selectedCardKey ?? "root-\(newID)")
                             }
@@ -551,6 +561,7 @@ struct ShelfView: View {
                             resizeScrollTask = Task { @MainActor in
                                 try? await Task.sleep(for: .milliseconds(90))
                                 guard !Task.isCancelled else { return }
+                                if showsPhoneScreenshotFeatureCard && !hasNavigatedHistory { return }
                                 if let selectedCardKey { scrollProxy.scrollTo(selectedCardKey) }
                             }
                         }
@@ -560,7 +571,12 @@ struct ShelfView: View {
         }
     }
 
+    @ViewBuilder
     private func cardList(cardSize: CGSize) -> some View {
+        if showsPhoneScreenshotFeatureCard {
+            phoneScreenshotFeatureCard(cardSize: cardSize)
+                .id("phoneScreenshotFeatureCard")
+        }
         ForEach(filteredEntries) { entry in
             if entry.kind == .group {
                 groupCluster(entry, cardSize: cardSize)
@@ -572,6 +588,72 @@ struct ShelfView: View {
                 )
             }
         }
+    }
+
+    private func phoneScreenshotFeatureCard(cardSize: CGSize) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Button {
+                model.openPhoneScreenshotGuide()
+            } label: {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 15, weight: .semibold))
+                        Text("新功能")
+                            .font(.system(size: 12, weight: .semibold))
+                        Spacer()
+                    }
+                    .foregroundStyle(Color.accentColor)
+
+                    Spacer(minLength: 12)
+                    Image(systemName: "iphone")
+                        .font(.system(size: 37, weight: .regular))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 16)
+                    Text("iPhone 截图直达")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text("保存到照片后，自动出现在这里")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .padding(.top, 7)
+                    Spacer(minLength: 10)
+                    HStack(spacing: 5) {
+                        Text("了解如何设置")
+                        Image(systemName: "arrow.up.right")
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                }
+                .padding(18)
+                .frame(width: cardSize.width, height: cardSize.height)
+                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 20))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20)
+                        .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1)
+                }
+                .contentShape(RoundedRectangle(cornerRadius: 20))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("了解 iPhone 截图直达功能")
+
+            Button {
+                model.dismissPhoneScreenshotFeatureCard()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("不再显示 iPhone 截图介绍卡片")
+            .help("不再显示介绍卡片；仍可在设置中打开指南")
+            .padding(9)
+        }
+        .frame(width: cardSize.width, height: cardSize.height)
     }
 
     /// Navigation keeps a flat sequence, but rendering keeps each group's
@@ -719,6 +801,7 @@ struct ShelfView: View {
         _ entry: ClipboardEntry, cardKey: String,
         modifiers: NSEvent.ModifierFlags
     ) {
+        hasNavigatedHistory = true
         let held = modifiers.intersection([.command, .shift])
         if !held.isEmpty && detailID != nil { closeDetail() }
         let anchorIndex = visibleEntries.firstIndex(where: { $0.id == selectedCardKey })
@@ -883,6 +966,7 @@ struct ShelfView: View {
 
     private func moveSelection(by offset: Int) {
         guard !visibleEntries.isEmpty else { return }
+        hasNavigatedHistory = true
         let currentIndex = visibleEntries.firstIndex(where: { $0.id == selectedCardKey }) ?? 0
         let nextIndex = min(max(currentIndex + offset, 0), visibleEntries.count - 1)
         let card = visibleEntries[nextIndex]

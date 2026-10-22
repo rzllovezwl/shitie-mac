@@ -53,6 +53,9 @@ struct SettingsView: View {
             }
 
             Section("iPhone 截图") {
+                Button("查看功能介绍与设置步骤…") {
+                    model.openPhoneScreenshotGuide()
+                }
                 Toggle("接收 iPhone 截图", isOn: Binding(
                     get: { model.phoneScreenshotReceivingEnabled },
                     set: { model.setPhoneScreenshotReceivingEnabled($0) }
