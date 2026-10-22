@@ -221,14 +221,6 @@ final class AppController: ObservableObject {
         clipboardChanges.markOwnWrite(changeCount: board.changeCount)
     }
 
-    func copyPhoneScreenshotSetupAddress() {
-        let board = NSPasteboard.general
-        board.clearContents()
-        board.setString(phoneScreenshotSetupAddress, forType: .string)
-        // The setup URL includes the same pairing secret as the upload URL.
-        clipboardChanges.markOwnWrite(changeCount: board.changeCount)
-    }
-
     private func startPhoneScreenshotReceiver() {
         guard phoneScreenshotReceiver == nil else { return }
         phoneScreenshotReceiverStatus = "正在启动…"

@@ -211,7 +211,6 @@ private struct PhoneScreenshotGuideView: View {
     @ObservedObject var model: AppController
     let close: () -> Void
     @State private var didCopyAddress = false
-    @State private var didCopySetupAddress = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -267,27 +266,23 @@ private struct PhoneScreenshotGuideView: View {
 
                     if model.phoneScreenshotReceivingEnabled {
                         HStack(alignment: .center, spacing: 18) {
-                            if let code = qrCode(for: model.phoneScreenshotSetupAddress) {
+                            if let code = qrCode(for: PhoneScreenshotReceiver.templateAddress) {
                                 Image(nsImage: code)
                                     .interpolation(.none)
                                     .resizable()
                                     .frame(width: 154, height: 154)
                                     .padding(10)
                                     .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                                    .accessibilityLabel("iPhone 安装页二维码")
+                                    .accessibilityLabel("iCloud 快捷指令模板二维码")
                             }
                             VStack(alignment: .leading, spacing: 9) {
-                                Text("用 iPhone 扫码打开安装页")
+                                Text("用 iPhone 扫码添加模板")
                                     .font(.headline)
-                                Text("安装页提供 iCloud 模板和这台 Mac 的专属接收地址。扫码时两台设备需在同一局域网。")
+                                Text("二维码直接打开 iCloud 模板。添加模板不要求同一 Wi-Fi；发送截图时手机与 Mac 需在同一可信局域网。")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
-                                Button(didCopySetupAddress ? "已复制安装页地址" : "复制安装页地址") {
-                                    model.copyPhoneScreenshotSetupAddress()
-                                    didCopySetupAddress = true
-                                }
-                                Text("安装页地址含私密配对码，请勿公开分享。")
+                                Text("模板链接不包含这台 Mac 的私密接收地址。")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -302,16 +297,16 @@ private struct PhoneScreenshotGuideView: View {
                         Text("在 iPhone 上设置一次")
                             .font(.headline)
                         guideStep(1, "添加 iCloud 模板",
-                                  "开启 Mac 接收后用 iPhone 扫上方二维码，在安装页点“打开 iCloud 模板”并添加。刚添加的副本顶部应有“当我将截屏保存到照片时”。")
+                                  "用 iPhone 扫上方二维码，直接打开并添加 iCloud 模板。刚添加的副本顶部应有“当我将截屏保存到照片时”。")
                         guideStep(2, "替换模板里的示例地址",
-                                  "只点手机安装页里的“复制接收地址”，不要复制安装页网址。打开已添加的模板，把“URL”操作中的中文地址占位文字完整替换；接收地址的路径应以 /v1/screenshot/ 开头。")
+                                  "在这台 Mac 上点“复制接收地址”，再到 iPhone 模板的“URL”操作中粘贴，完整替换中文占位文字。跨设备粘贴不可用时，可用可信方式把地址传到手机。接收地址应包含 /v1/screenshot/。")
                         guideStep(3, "开启自动化并设为立即运行",
                                   "导入后如果顶部显示“自动化已关闭”，轻点该提示，开启截屏自动化并选“立即运行”（或关闭“运行前询问”）。共享模板无法代替你在 iPhone 上完成这次开启。")
                         guideStep(4, "保存一张新截图验证",
                                   "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。保存截图到“照片”后，历史里应出现“iPhone 截图”卡片，并按声音设置播放提示音。")
                     }
 
-                    Text("若顶部没有截屏触发条件，请确认添加的是安装页的 iCloud 模板，而不是之前下载的 .shortcut 文件。已添加的旧副本可删除，避免重复触发。")
+                    Text("若顶部没有截屏触发条件，请确认是通过上方二维码添加的 iCloud 模板，而不是之前下载的 .shortcut 文件。已添加的旧副本可删除，避免重复触发。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

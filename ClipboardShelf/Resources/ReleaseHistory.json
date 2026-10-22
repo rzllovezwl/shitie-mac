@@ -2,6 +2,16 @@
   "releases": [
     {
       "version": "1.0.0",
+      "build": "94",
+      "date": "2026-10-22",
+      "title": "扫码直达 iPhone 截图模板",
+      "changes": [
+        "Mac 指南二维码直接打开 iCloud 截图模板，省去手机安装页的中转步骤。",
+        "设置说明改为从 Mac 复制专属接收地址，并在 iPhone 模板中替换示例地址。"
+      ]
+    },
+    {
+      "version": "1.0.0",
       "build": "93",
       "date": "2026-10-22",
       "title": "更新 iPhone 截图直达模板",
