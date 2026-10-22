@@ -31,7 +31,6 @@ enum AppAppearanceMode: String, CaseIterable, Identifiable {
 enum PhoneScreenshotDiscovery {
     static let onboardingHandledKey = "phoneScreenshotOnboardingHandledV1"
     static let cardDismissedKey = "phoneScreenshotFeatureCardDismissedV1"
-    static let firstScreenshotReceivedKey = "phoneScreenshotFirstReceivedV1"
 }
 
 @MainActor
@@ -93,8 +92,6 @@ final class AppController: ObservableObject {
         self.store = store
         showsPhoneScreenshotFeatureCard = !UserDefaults.standard.bool(
             forKey: PhoneScreenshotDiscovery.cardDismissedKey
-        ) && !UserDefaults.standard.bool(
-            forKey: PhoneScreenshotDiscovery.firstScreenshotReceivedKey
         )
         phoneScreenshotReceivingEnabled = UserDefaults.standard.bool(
             forKey: PhoneScreenshotReceiver.enabledKey
@@ -269,8 +266,6 @@ final class AppController: ObservableObject {
             let saved = try store.importPhoneScreenshot(data, type: type)
             if saved {
                 entries = store.rootEntries
-                UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.firstScreenshotReceivedKey)
-                showsPhoneScreenshotFeatureCard = false
                 refreshStorageSizes(force: false)
                 CopySoundPlayer.shared.playIfEnabled()
                 statusMessage = "已收到 iPhone 截图"

@@ -46,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        Task { @MainActor in
+            SettingsWindowController.shared.finishOpeningAfterActivation()
+        }
+    }
+
     func applicationDidResignActive(_ notification: Notification) {
         Task { @MainActor in
             SettingsWindowController.shared.restoreAfterAppDeactivates()

@@ -9,6 +9,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var isBehindRegularWindows = false
     private var switchedToAccessoryForPanel = false
+    private var needsFrontOrderAfterActivation = false
 
     private override init() {}
 
@@ -26,6 +27,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func prepareForPanelPresentation() {
+        needsFrontOrderAfterActivation = false
         guard let window, window.isVisible || window.isMiniaturized else {
             _ = NSApp.setActivationPolicy(.accessory)
             return
@@ -90,6 +92,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func open() {
         switchedToAccessoryForPanel = false
+        needsFrontOrderAfterActivation = true
         showDockIcon()
         restoreForInteraction()
 
@@ -112,15 +115,27 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window?.deminiaturize(nil)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        // On the first accessory -> regular transition, activation may finish
+        // after the window is created. Order it above the other app explicitly.
+        window?.orderFrontRegardless()
         // The first accessory -> regular policy change can finish on the next
-        // run loop. Reassert only this window's order then, after the shelf is
-        // already gone, so the Dock icon never appears without Settings.
+        // run loop. Reassert only this window's order after the shelf is gone.
         DispatchQueue.main.async { [weak self] in
             guard let self, let window = self.window,
                   window.isVisible, !self.isBehindRegularWindows else { return }
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+            if NSApp.isActive { self.finishOpeningAfterActivation() }
         }
+    }
+
+    func finishOpeningAfterActivation() {
+        guard needsFrontOrderAfterActivation, let window,
+              window.isVisible, !window.isMiniaturized else { return }
+        needsFrontOrderAfterActivation = false
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
@@ -131,6 +146,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        needsFrontOrderAfterActivation = false
         switchedToAccessoryForPanel = false
         restoreForInteraction()
         DispatchQueue.main.async { [weak self] in
