@@ -279,7 +279,7 @@ private struct PhoneScreenshotGuideView: View {
                             VStack(alignment: .leading, spacing: 9) {
                                 Text("用 iPhone 扫码打开安装页")
                                     .font(.headline)
-                                Text("安装页提供可导入的快捷指令模板和这台 Mac 的专属接收地址。扫码时两台设备需在同一局域网。")
+                                Text("安装页提供 iCloud 模板和这台 Mac 的专属接收地址。扫码时两台设备需在同一局域网。")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -301,20 +301,25 @@ private struct PhoneScreenshotGuideView: View {
                     VStack(alignment: .leading, spacing: 13) {
                         Text("在 iPhone 上设置一次")
                             .font(.headline)
-                        guideStep(1, "导入现成模板",
-                                  "开启 Mac 接收后用 iPhone 扫上方二维码，在安装页下载模板；到“文件”里打开下载的 .shortcut 文件并添加到“快捷指令”。")
+                        guideStep(1, "添加 iCloud 模板",
+                                  "开启 Mac 接收后用 iPhone 扫上方二维码，在安装页点“打开 iCloud 模板”并添加。刚添加的副本顶部应有“当我将截屏保存到照片时”。")
                         guideStep(2, "替换模板里的示例地址",
-                                  "在安装页复制这台 Mac 的完整接收地址。打开已添加的快捷指令，把“URL”操作中的 example.invalid 示例地址替换为它。")
-                        guideStep(3, "关联截屏自动化",
-                                  "打开“快捷指令 → 自动化”，新建“截屏 → 已保存截屏时”，保存位置选“照片”，选择“运行快捷指令”并选刚导入的模板，设为自动运行。")
+                                  "只点手机安装页里的“复制接收地址”，不要复制安装页网址。打开已添加的模板，把“URL”操作中的 example.invalid 地址完整替换；接收地址的路径应以 /v1/screenshot/ 开头。")
+                        guideStep(3, "开启自动化并设为立即运行",
+                                  "导入后如果顶部显示“自动化已关闭”，轻点该提示，开启截屏自动化并选“立即运行”（或关闭“运行前询问”）。共享模板无法代替你在 iPhone 上完成这次开启。")
                         guideStep(4, "保存一张新截图验证",
-                                  "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。成功后历史里会出现“iPhone 截图”卡片，并按声音设置播放提示音。")
+                                  "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。保存截图到“照片”后，历史里应出现“iPhone 截图”卡片，并按声音设置播放提示音。")
                     }
+
+                    Text("若顶部没有截屏触发条件，请确认添加的是安装页的 iCloud 模板，而不是之前下载的 .shortcut 文件。已添加的旧副本可删除，避免重复触发。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     VStack(alignment: .leading, spacing: 10) {
                         Text("减少离开 Wi-Fi 后的超时提醒")
                             .font(.headline)
-                        Text("可在 iPhone 自动化最前面加入“获取网络详细信息”，选择 Wi-Fi 网络的“网络名称”；再加入“如果”，设为网络名称等于家里或办公室使用的 Wi-Fi 名称。把“运行快捷指令”放进“如果”分支，“否则”留空。")
+                        Text("可在 iPhone 模板的上传步骤前加入“获取网络详细信息”，选择 Wi-Fi 网络的“网络名称”；再加入“如果”，设为网络名称等于家里或办公室使用的 Wi-Fi 名称。把“获取 URL 内容”放进“如果”分支，“否则”留空。")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                         Text("这样连接 5G 或其他 Wi-Fi 时会跳过发送，避免因离开指定网络而请求超时。名称相同仍不能保证 Mac 在线；Mac 休眠、地址变化或网络隔离时仍可能超时。")

@@ -36,8 +36,12 @@ struct PhoneScreenshotTransportSmoke {
         precondition(denied == 403, "wrong pairing secret was accepted: \(denied)")
         let base = "http://127.0.0.1:\(port)"
         let (setupStatus, setupBody) = try get(base + "/v1/setup/local-test-secret")
+        let setupPage = String(decoding: setupBody, as: UTF8.self)
         precondition(setupStatus == 200 &&
-                     String(decoding: setupBody, as: UTF8.self).contains("/v1/shortcut/local-test-secret"),
+                     setupPage.contains("https://www.icloud.com/shortcuts/0670d06f29bf4fdaa89cae5999c9a584") &&
+                     setupPage.contains("/v1/screenshot/local-test-secret") &&
+                     setupPage.contains("不要复制浏览器地址栏里的安装页网址") &&
+                     setupPage.contains("自动化已关闭"),
                      "authorized setup page was not served")
         let (shortcutStatus, shortcutBody) = try get(base + "/v1/shortcut/local-test-secret")
         precondition(shortcutStatus == 200 && shortcutBody == shortcut,

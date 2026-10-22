@@ -68,7 +68,7 @@ struct SettingsView: View {
                     Button("复制接收地址") {
                         model.copyPhoneScreenshotEndpoint()
                     }
-                    Text("点击上方指南可扫码导入快捷指令模板，再替换模板中的示例 URL 并关联截屏自动化。可在发送前判断 Wi-Fi 名称，避免离开指定网络时反复收到超时提醒。手机和 Mac 需连接同一可信局域网；HTTP 传输不加密，地址包含私密配对码，请勿分享。")
+                    Text("点击上方指南可扫码添加 iCloud 模板、替换示例 URL，再在 iPhone 上开启截屏自动化并设为立即运行。请复制接收地址（/v1/screenshot/），不要填写安装页地址（/v1/setup/）。可在发送前判断 Wi-Fi 名称，避免离开指定网络时反复收到超时提醒。手机和 Mac 需连接同一可信局域网；HTTP 传输不加密，地址包含私密配对码，请勿分享。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

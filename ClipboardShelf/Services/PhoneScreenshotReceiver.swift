@@ -272,10 +272,12 @@ private final class PhoneScreenshotConnection {
         <title>设置 iPhone 截图直达 ClipHoook</title>
         <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f4f6fa;color:#172033;margin:0;padding:24px}main{max-width:520px;margin:auto}h1{font-size:25px}p,li{line-height:1.55}section{background:white;border-radius:18px;padding:20px;margin:16px 0;box-shadow:0 4px 24px #16294412}a.button,button{display:block;box-sizing:border-box;width:100%;border:0;border-radius:12px;background:#087cff;color:white;font-size:17px;font-weight:600;padding:15px;text-align:center;text-decoration:none}button{margin-top:10px}input{box-sizing:border-box;width:100%;font-size:13px;padding:12px;border:1px solid #bbc6d5;border-radius:10px}small{color:#627086}ol{padding-left:23px}</style></head><body><main>
         <h1>iPhone 截图直达 ClipHoook</h1><p>这台 Mac 已开启接收。请让 iPhone 和 Mac 保持在同一可信局域网。</p>
-        <section><strong>1. 下载快捷指令模板</strong><p>下载后在“文件”中点开，添加到“快捷指令”。模板不含任何人的接收地址。</p><a class="button" href="\(shortcutPath)">下载快捷指令模板</a></section>
-        <section><strong>2. 填入这台 Mac 的地址</strong><p>编辑刚添加的快捷指令，把“URL”操作里的示例地址替换成以下完整地址。</p><input id="address" readonly value="\(address)"><button onclick="copyAddress()">复制接收地址</button><small id="copyHint">如果复制按钮无效，可长按上方地址并复制。请勿把地址分享给他人。</small></section>
-        <section><strong>3. 开启截屏自动化</strong><ol><li>打开“快捷指令 → 自动化”，新建“截屏 → 已保存截屏时”，选择“照片”。</li><li>选择“运行快捷指令”，指向刚添加的 ClipHoook 模板，并设为自动运行。</li><li>保存一张新截图，检查 Mac 上是否出现“iPhone 截图”卡片。</li></ol></section>
-        <p><small>离开这台 Mac 所在的 Wi-Fi 时，上传可能超时。可在自动化前面按 Wi-Fi 名称添加“如果”判断，只在指定网络运行。Mac 休眠或离线时也无法接收。</small></p>
+        <section><strong>1. 添加 iCloud 模板</strong><p>点下方按钮，在“快捷指令”中添加模板。打开刚添加的副本，顶部应显示“当我将截屏保存到照片时”。模板只含示例地址，不含任何人的接收地址。</p><a class="button" href="https://www.icloud.com/shortcuts/0670d06f29bf4fdaa89cae5999c9a584" rel="noreferrer">打开 iCloud 模板</a></section>
+        <section><strong>2. 填入这台 Mac 的接收地址</strong><p>点击下方按钮复制接收地址，编辑刚添加的模板，把“URL”操作里的 example.invalid 示例地址完整替换为它。<strong>不要复制浏览器地址栏里的安装页网址</strong>：接收地址必须包含 /v1/screenshot/，而安装页网址包含 /v1/setup/。</p><input id="address" readonly value="\(address)"><button onclick="copyAddress()">复制接收地址（用于上传）</button><small id="copyHint">如果复制按钮无效，可长按上方地址并复制。请勿把地址分享给他人。</small></section>
+        <section><strong>3. 开启自动化</strong><p>导入后若顶部显示“自动化已关闭”，轻点它，开启这条截屏自动化，并设为“立即运行”或关闭“运行前询问”。这是 iPhone 上需要确认的一次性设置；仅有触发条件还不会自动上传。</p></section>
+        <section><strong>4. 保存新截图验证</strong><p>保持 Mac 运行，iPhone 和 Mac 接入同一可信局域网；保存一张新截图到“照片”，检查 Mac 上是否出现“iPhone 截图”卡片并听到提示音。</p></section>
+        <p><small>若顶部没有截屏触发条件，请确认添加的是本页的 iCloud 模板，不要使用之前下载的 .shortcut 文件。已添加旧副本可删除，避免重复触发。</small></p>
+        <p><small>离开这台 Mac 所在的 Wi-Fi 时，上传可能超时。可在模板的“获取 URL 内容”前按 Wi-Fi 名称添加“如果”判断，只在指定网络发送。Mac 休眠或离线时也无法接收。</small></p>
         </main><script>function copyAddress(){let field=document.getElementById('address');field.select();field.setSelectionRange(0,field.value.length);let ok=document.execCommand('copy');document.getElementById('copyHint').textContent=ok?'已复制地址，请在快捷指令的 URL 操作中粘贴。':'请长按地址并复制。';}</script></body></html>
         """
     }
