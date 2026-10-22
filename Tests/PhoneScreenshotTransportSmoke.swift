@@ -38,8 +38,9 @@ struct PhoneScreenshotTransportSmoke {
         let (setupStatus, setupBody) = try get(base + "/v1/setup/local-test-secret")
         let setupPage = String(decoding: setupBody, as: UTF8.self)
         precondition(setupStatus == 200 &&
-                     setupPage.contains("https://www.icloud.com/shortcuts/0670d06f29bf4fdaa89cae5999c9a584") &&
+                     setupPage.contains("https://www.icloud.com/shortcuts/92f7bdc3a5554d1e9d560e0ed03a8879") &&
                      setupPage.contains("/v1/screenshot/local-test-secret") &&
+                     setupPage.contains("中文地址占位文字") &&
                      setupPage.contains("不要复制浏览器地址栏里的安装页网址") &&
                      setupPage.contains("自动化已关闭"),
                      "authorized setup page was not served")
