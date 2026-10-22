@@ -51,6 +51,11 @@ struct ClipboardBatchSmoke {
         try check(ClipboardPasteboardWriter.write(group, from: fileStore, to: destinationBoard),
                   "整组文件无法回写剪贴板")
         try check(try capture(destinationBoard).count == 2, "整组文件回写后缺少项目")
+        guard let fileDrag = ClipboardPasteboardWriter.dragPayload([group], from: fileStore) else {
+            throw ClipboardBatchTestError.failed("整组文件不能开始拖放")
+        }
+        try check(fileDrag.writers.count == 2 && fileDrag.fileAccesses.count == 2,
+                  "拖放时文件数量或访问权限不完整")
         _ = try fileStore.addCapturedBatch(files, sourceAppName: "访达",
                                            sourceAppBundleID: "com.apple.finder",
                                            automaticallyGroup: true)
@@ -91,6 +96,14 @@ struct ClipboardBatchSmoke {
                   "整组文字无法复制")
         try check(destinationBoard.string(forType: .string) == "第一段\n\n第二段",
                   "多文字复制顺序或分隔符错误")
+        guard let textDrag = ClipboardPasteboardWriter.dragPayload([textGroup], from: textStore) else {
+            throw ClipboardBatchTestError.failed("整组文字不能开始拖放")
+        }
+        let dragBoard = NSPasteboard.withUniqueName()
+        defer { dragBoard.releaseGlobally() }
+        try check(dragBoard.writeObjects(textDrag.writers) &&
+                  dragBoard.string(forType: .string) == "第一段\n\n第二段",
+                  "整组文字拖放没有提供完整内容")
         try textStore.delete(textGroup.groupMembers[0])
         try check(textStore.rootEntries.count == 1 && textStore.rootEntries[0].kind != .group,
                   "成员删除后单成员组未解散")
@@ -202,6 +215,20 @@ struct ClipboardBatchSmoke {
         }
         try check(imageURLs == [savedFirstImage, savedSecondImage],
                   "两张图片未提供可供目标应用批量读取的文件 URL")
+        let generalBoardChangeCount = NSPasteboard.general.changeCount
+        guard let imageDrag = ClipboardPasteboardWriter.dragPayload([imageGroup], from: imageStore) else {
+            throw ClipboardBatchTestError.failed("两张图片不能开始拖放")
+        }
+        try check(imageDrag.writers.count == 2 &&
+                  NSPasteboard.general.changeCount == generalBoardChangeCount,
+                  "构造拖放内容时修改了系统剪贴板")
+        dragBoard.clearContents()
+        try check(dragBoard.writeObjects(imageDrag.writers), "两张图片无法写入拖放剪贴板")
+        let draggedImages = dragBoard.pasteboardItems ?? []
+        try check(draggedImages.count == 2 &&
+                  draggedImages[0].data(forType: .png) == firstImage &&
+                  draggedImages[1].data(forType: .png) == secondImage,
+                  "两张图片的拖放数据或顺序错误")
 
         let migrationFolder = root.appendingPathComponent("migration")
         do {

@@ -463,6 +463,23 @@ final class AppController: ObservableObject {
         panel.hide()
     }
 
+    func beginDrag(_ selection: [ClipboardEntry]) -> ClipboardDragPayload? {
+        guard let payload = ClipboardPasteboardWriter.dragPayload(
+            expandedSelection(selection), from: store
+        ) else {
+            statusMessage = selection.contains(where: \.containsUnavailableImage)
+                ? "图片未保存，无法拖到其他应用；可单独拖动组内其他内容。"
+                : "内容文件不可用，无法拖到其他应用。"
+            return nil
+        }
+        panel.beginExternalDrag()
+        return payload
+    }
+
+    func finishDrag(didDrop: Bool) {
+        panel.finishExternalDrag(didDrop: didDrop)
+    }
+
     func copySelection(_ selection: [ClipboardEntry]) {
         guard selection.count > 1 else {
             if let entry = selection.first { copy(entry) }

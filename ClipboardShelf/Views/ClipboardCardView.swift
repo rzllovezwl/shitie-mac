@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -86,6 +87,8 @@ struct ClipboardCardView: View {
     let onCopy: () -> Void
     let onDelete: () -> Void
     let onOpenSource: () -> Void
+    let onBeginDrag: () -> ClipboardDragPayload?
+    let onEndDrag: (Bool) -> Void
     @State private var previewResult: TextPreviewResult?
 
     private var previewMode: TextPreviewMode {
@@ -103,7 +106,7 @@ struct ClipboardCardView: View {
         } else {
             groupPrefix = ""
         }
-        return groupPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴"
+        return groupPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴，按住拖到其他应用"
     }
 
     private var textScale: CGFloat {
@@ -228,7 +231,12 @@ struct ClipboardCardView: View {
                 onSelect: onSelect,
                 onPaste: onPaste,
                 onCopy: onCopy,
-                onDelete: onDelete
+                onDelete: onDelete,
+                onBeginDrag: onBeginDrag,
+                onEndDrag: onEndDrag,
+                dragPreviewURL: entry.kind == .image ? imageURL : thumbnailURL,
+                dragSymbolName: entry.kind == .link ? "link" : "doc.on.clipboard",
+                deferSelectionUntilMouseUp: true
             )
         }
         .overlay(alignment: .bottomTrailing) {
@@ -283,6 +291,8 @@ struct ClipboardGroupCardView: View {
     let onPaste: () -> Void
     let onCopy: () -> Void
     let onDelete: () -> Void
+    let onBeginDrag: () -> ClipboardDragPayload?
+    let onEndDrag: (Bool) -> Void
 
     private var textScale: CGFloat { min(1.25, max(0.9, cardSize.height / 252)) }
 
@@ -380,11 +390,14 @@ struct ClipboardGroupCardView: View {
         .overlay {
             ImmediateCardInteraction(
                 onSelect: onSelect, onPaste: onPaste,
-                onCopy: onCopy, onDelete: onDelete
+                onCopy: onCopy, onDelete: onDelete,
+                onBeginDrag: onBeginDrag, onEndDrag: onEndDrag,
+                dragSymbolName: "square.stack.3d.up",
+                deferSelectionUntilMouseUp: true
             )
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.groupMemberIDs.count) 项分组，单击\(isExpanded ? "收起" : "展开")，双击粘贴")
+        .accessibilityLabel("\(entry.groupMemberIDs.count) 项分组，单击\(isExpanded ? "收起" : "展开")，双击粘贴，按住拖到其他应用")
     }
 }
 
@@ -489,6 +502,11 @@ struct ImmediateCardInteraction: NSViewRepresentable {
     let onPaste: () -> Void
     let onCopy: () -> Void
     let onDelete: () -> Void
+    var onBeginDrag: (() -> ClipboardDragPayload?)? = nil
+    var onEndDrag: ((Bool) -> Void)? = nil
+    var dragPreviewURL: URL? = nil
+    var dragSymbolName = "doc.on.clipboard"
+    var deferSelectionUntilMouseUp = false
 
     func makeNSView(context: Context) -> CardInteractionView {
         CardInteractionView()
@@ -499,22 +517,128 @@ struct ImmediateCardInteraction: NSViewRepresentable {
         view.onPaste = onPaste
         view.onCopy = onCopy
         view.onDelete = onDelete
+        view.onBeginDrag = onBeginDrag
+        view.onEndDrag = onEndDrag
+        view.dragPreviewURL = dragPreviewURL
+        view.dragSymbolName = dragSymbolName
+        view.deferSelectionUntilMouseUp = deferSelectionUntilMouseUp
+        view.toolTip = onBeginDrag == nil ? nil : "按住卡片拖到其他应用"
     }
 }
 
-final class CardInteractionView: NSView {
+final class CardInteractionView: NSView, NSDraggingSource {
     var onSelect: ((NSEvent.ModifierFlags) -> Void)?
     var onPaste: (() -> Void)?
     var onCopy: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onBeginDrag: (() -> ClipboardDragPayload?)?
+    var onEndDrag: ((Bool) -> Void)?
+    var dragPreviewURL: URL?
+    var dragSymbolName = "doc.on.clipboard"
+    var deferSelectionUntilMouseUp = false
+
+    private var mouseDownPoint: NSPoint?
+    private var pendingSelectionModifiers: NSEvent.ModifierFlags?
+    private var dragProvider: (() -> ClipboardDragPayload?)?
+    private var activeDragPayload: ClipboardDragPayload?
+    private var draggingStarted = false
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
         if event.clickCount == 2 {
+            mouseDownPoint = nil
+            pendingSelectionModifiers = nil
+            dragProvider = nil
             onPaste?()
         } else if event.clickCount == 1 {
-            onSelect?(event.modifierFlags)
+            mouseDownPoint = convert(event.locationInWindow, from: nil)
+            dragProvider = onBeginDrag
+            if deferSelectionUntilMouseUp {
+                // Keep the card in place while the user decides whether to
+                // click it or drag it out of the panel.
+                pendingSelectionModifiers = event.modifierFlags
+            } else {
+                onSelect?(event.modifierFlags)
+            }
+        }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = mouseDownPoint, !draggingStarted else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard hypot(point.x - start.x, point.y - start.y) >= 5 else { return }
+        mouseDownPoint = nil
+        guard let payload = dragProvider?(), !payload.writers.isEmpty else { return }
+        pendingSelectionModifiers = nil
+        draggingStarted = true
+        activeDragPayload = payload
+
+        let artwork = dragArtwork()
+        let items = payload.writers.enumerated().map { index, writer in
+            let item = NSDraggingItem(pasteboardWriter: writer)
+            let offset = CGFloat(min(index, 3)) * 4
+            item.setDraggingFrame(
+                NSRect(x: start.x - 28 + offset, y: start.y - 28 - offset,
+                       width: 56, height: 56),
+                contents: artwork
+            )
+            return item
+        }
+        _ = beginDraggingSession(with: items, event: event, source: self)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if let modifiers = pendingSelectionModifiers, !draggingStarted {
+            onSelect?(modifiers)
+        }
+        mouseDownPoint = nil
+        pendingSelectionModifiers = nil
+        dragProvider = nil
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        .copy
+    }
+
+    func draggingSession(
+        _ session: NSDraggingSession, endedAt screenPoint: NSPoint,
+        operation: NSDragOperation
+    ) {
+        activeDragPayload = nil
+        draggingStarted = false
+        dragProvider = nil
+        onEndDrag?(operation != [])
+    }
+
+    private func dragArtwork() -> NSImage {
+        let source = dragPreviewURL.flatMap { url -> NSImage? in
+            guard let imageSource = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let thumbnail = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 112
+                  ] as CFDictionary) else { return nil }
+            return NSImage(cgImage: thumbnail, size: NSSize(
+                width: thumbnail.width, height: thumbnail.height
+            ))
+        }
+            ?? NSImage(systemSymbolName: dragSymbolName, accessibilityDescription: nil)
+        return NSImage(size: NSSize(width: 56, height: 56), flipped: false) { rect in
+            NSColor.controlBackgroundColor.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
+            if let source, source.size.width > 0, source.size.height > 0 {
+                let inset = rect.insetBy(dx: 5, dy: 5)
+                let scale = min(inset.width / source.size.width, inset.height / source.size.height)
+                let size = NSSize(width: source.size.width * scale, height: source.size.height * scale)
+                source.draw(in: NSRect(
+                    x: inset.midX - size.width / 2, y: inset.midY - size.height / 2,
+                    width: size.width, height: size.height
+                ))
+            }
+            return true
         }
     }
 

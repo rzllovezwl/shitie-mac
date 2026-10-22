@@ -13,13 +13,10 @@ struct SourceAppIconView: View {
     var body: some View {
         ZStack {
             if name == "iPhone 截图" {
-                Image(systemName: "apple.logo")
+                Image(systemName: "iphone")
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(LinearGradient(
-                        colors: [.red, .orange, .yellow, .green, .cyan, .blue, .purple],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
+                    .foregroundStyle(.secondary)
             } else if let icon {
                 Image(nsImage: icon)
                     .resizable()

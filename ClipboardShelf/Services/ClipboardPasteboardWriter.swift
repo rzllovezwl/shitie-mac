@@ -1,5 +1,11 @@
 import AppKit
 
+/// Keeps security-scoped originals open until an external drag ends.
+struct ClipboardDragPayload {
+    let writers: [NSPasteboardWriting]
+    let fileAccesses: [FilePreviewAccess]
+}
+
 enum ClipboardCopyFormat: String, CaseIterable, Identifiable {
     static let preferenceKey = "defaultCopyFormat"
 
@@ -32,6 +38,58 @@ enum ClipboardGroupingPreference {
 @MainActor
 enum ClipboardPasteboardWriter {
     enum Mode: Equatable { case original, plainText }
+
+    /// Build an independent drag pasteboard without replacing the user's
+    /// general clipboard or counting the operation as a new copy.
+    static func dragPayload(
+        _ entries: [ClipboardEntry], from store: ClipboardHistoryStore
+    ) -> ClipboardDragPayload? {
+        let members = entries.flatMap { $0.kind == .group ? $0.groupMembers : [$0] }
+        guard !members.isEmpty,
+              !members.contains(where: { $0.kind == .unavailableImage }) else { return nil }
+
+        if members.count > 1 && members.allSatisfy({ $0.kind == .text || $0.kind == .link }) {
+            let texts = members.compactMap(\.text)
+            guard texts.count == members.count else { return nil }
+            let item = NSPasteboardItem()
+            guard item.setString(texts.joined(separator: "\n\n"), forType: .string) else { return nil }
+            return ClipboardDragPayload(writers: [item], fileAccesses: [])
+        }
+
+        var writers: [NSPasteboardWriting] = []
+        var fileAccesses: [FilePreviewAccess] = []
+        for entry in members {
+            switch entry.kind {
+            case .text, .link:
+                guard let text = entry.text else { return nil }
+                let item = NSPasteboardItem()
+                guard item.setString(text, forType: .string) else { return nil }
+                if entry.hasRichText {
+                    let rich = store.richTextData(for: entry)
+                    if let rtf = rich.rtf, !item.setData(rtf, forType: .rtf) { return nil }
+                    if let html = rich.html, !item.setData(html, forType: .html) { return nil }
+                    if let rtfd = rich.rtfd, !item.setData(rtfd, forType: .rtfd) { return nil }
+                }
+                writers.append(item)
+            case .image:
+                guard let url = store.imageURL(for: entry),
+                      let data = try? Data(contentsOf: url) else { return nil }
+                let item = NSPasteboardItem()
+                guard item.setString(url.absoluteString, forType: .fileURL),
+                      item.setData(
+                        data, forType: NSPasteboard.PasteboardType(entry.imagePasteboardType ?? "public.png")
+                      ) else { return nil }
+                writers.append(item)
+            case .fileReference:
+                guard let access = store.filePreviewAccess(for: entry) else { return nil }
+                fileAccesses.append(access)
+                writers.append(access.url as NSURL)
+            case .unavailableImage, .group:
+                return nil
+            }
+        }
+        return ClipboardDragPayload(writers: writers, fileAccesses: fileAccesses)
+    }
 
     static func write(
         _ entry: ClipboardEntry,

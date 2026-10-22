@@ -680,7 +680,9 @@ struct ShelfView: View {
                 },
                 onPaste: { pasteSelection(startingAt: entry) },
                 onCopy: { copySelection(startingAt: entry) },
-                onDelete: { model.confirmDelete(entry) }
+                onDelete: { model.confirmDelete(entry) },
+                onBeginDrag: { model.beginDrag(dragSelection(startingAt: entry)) },
+                onEndDrag: { model.finishDrag(didDrop: $0) }
             )
             if expanded {
                 ForEach(Array(entry.groupMembers.enumerated()), id: \.offset) { index, member in
@@ -735,7 +737,9 @@ struct ShelfView: View {
             onPaste: { pasteSelection(startingAt: entry) },
             onCopy: { copySelection(startingAt: entry) },
             onDelete: { model.confirmDelete(entry) },
-            onOpenSource: { model.openSourceApplication(for: entry) }
+            onOpenSource: { model.openSourceApplication(for: entry) },
+            onBeginDrag: { model.beginDrag(dragSelection(startingAt: entry)) },
+            onEndDrag: { model.finishDrag(didDrop: $0) }
         )
         .background {
             GeometryReader { cardGeometry in
@@ -861,6 +865,11 @@ struct ShelfView: View {
         } else {
             model.copy(entry)
         }
+    }
+
+    private func dragSelection(startingAt entry: ClipboardEntry) -> [ClipboardEntry] {
+        selectedIDs.count > 1 && selectedIDs.contains(entry.id)
+            ? selectedEntriesInOrder : [entry]
     }
 
     private func pasteSelection(startingAt entry: ClipboardEntry) {

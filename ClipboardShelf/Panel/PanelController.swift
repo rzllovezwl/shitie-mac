@@ -196,6 +196,7 @@ final class PanelController {
     private var appActivationObserver: Any?
     private var appDeactivationObserver: Any?
     private var isDismissing = false
+    private var isExternalDragActive = false
     private var activatedForImagePreview = false
     private var imagePreviewActivationToken = UUID()
     private var modalInteractionDepth = 0
@@ -295,7 +296,8 @@ final class PanelController {
                 guard let self else { return }
                 self.lastExternalApplication = application
                 guard self.panel.isVisible, !self.isDismissing,
-                      !self.isModalInteractionActive else { return }
+                      !self.isModalInteractionActive,
+                      !self.isExternalDragActive else { return }
                 // A delayed activation notification from the app that owned
                 // the hotkey must not immediately undo the panel opening.
                 let justOpened = ProcessInfo.processInfo.systemUptime - self.shownAtUptime < 0.35
@@ -313,7 +315,8 @@ final class PanelController {
             MainActor.assumeIsolated {
                 guard let self, self.activatedForImagePreview,
                       self.panel.isVisible, !self.isDismissing,
-                      !self.isModalInteractionActive else { return }
+                      !self.isModalInteractionActive,
+                      !self.isExternalDragActive else { return }
                 let keyPanel = self.detailPanel.flatMap { $0.isVisible ? $0 : nil } ?? self.panel
                 keyPanel.makeKeyAndOrderFront(nil)
 #if DEBUG
@@ -343,6 +346,7 @@ final class PanelController {
         shownAtUptime = ProcessInfo.processInfo.systemUptime
         let showGeneration = presentationGeneration
         isDismissing = false
+        isExternalDragActive = false
         activatedForImagePreview = false
         modalDismissalGraceUntil = 0
         clearDetailPanel(restoreShelfFocus: false)
@@ -391,7 +395,7 @@ final class PanelController {
         // target app out of its fullscreen Space or raising Settings.
         DispatchQueue.main.async { [weak self, weak panel] in
             guard let self, let panel, panel.isVisible, !self.isDismissing,
-                  !self.isModalInteractionActive else { return }
+                  !self.isModalInteractionActive, !self.isExternalDragActive else { return }
             guard self.detailPanel?.isVisible != true else { return }
             panel.makeKeyAndOrderFront(nil)
             panel.orderFrontRegardless()
@@ -400,7 +404,7 @@ final class PanelController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self, self.presentationGeneration == showGeneration,
                   self.panel.isVisible, !self.isDismissing,
-                  !self.isModalInteractionActive else { return }
+                  !self.isModalInteractionActive, !self.isExternalDragActive else { return }
             if !self.panel.isOnActiveSpace {
                 self.panel.orderFrontRegardless()
             }
@@ -445,6 +449,7 @@ final class PanelController {
             MainActor.assumeIsolated {
                 guard let self, self.presentationGeneration == showGeneration,
                       !self.isDismissing, !self.isModalInteractionActive,
+                      !self.isExternalDragActive,
                       let panel, panel.isVisible else { return }
                 guard self.detailPanel?.isVisible != true else { return }
                 panel.makeKeyAndOrderFront(nil)
@@ -455,9 +460,21 @@ final class PanelController {
 
     private func dismissForOutsideClick(at location: CGPoint) {
         guard panel.isVisible, !isDismissing, !isModalInteractionActive,
+              !isExternalDragActive,
               !panel.frame.contains(location),
               detailPanel.map({ $0.isVisible && $0.frame.contains(location) }) != true else { return }
         hide(restorePreviousApplication: false)
+    }
+
+    func beginExternalDrag() {
+        isExternalDragActive = true
+    }
+
+    func finishExternalDrag(didDrop: Bool) {
+        if didDrop {
+            hide(restorePreviousApplication: false)
+        }
+        isExternalDragActive = false
     }
 
     func activateForImagePreview() {
@@ -773,6 +790,7 @@ final class PanelController {
         presentationGeneration += 1
         let hideGeneration = presentationGeneration
         isDismissing = true
+        isExternalDragActive = false
         let shouldRestore = restorePreviousApplication && activatedForImagePreview
         activatedForImagePreview = false
         clearDetailPanel(restoreShelfFocus: false)
