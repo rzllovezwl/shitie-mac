@@ -260,6 +260,21 @@ private struct PhoneScreenshotGuideView: View {
                                   "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。成功后历史里会出现“iPhone 截图”卡片，并按声音设置播放提示音。")
                     }
 
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("减少离开 Wi-Fi 后的超时提醒")
+                            .font(.headline)
+                        Text("可在 iPhone 自动化最前面加入“获取网络详细信息”，选择 Wi-Fi 网络的“网络名称”；再加入“如果”，设为网络名称等于家里或办公室使用的 Wi-Fi 名称。把“获取最新截屏 → URL → 获取 URL 内容”三个操作都放进“如果”分支，“否则”留空。")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Text("这样连接 5G 或其他 Wi-Fi 时会跳过发送，避免因离开指定网络而请求超时。名称相同仍不能保证 Mac 在线；Mac 休眠、地址变化或网络隔离时仍可能超时。")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
                     Text("目前只支持同一可信局域网直传；使用 5G 或离开该网络时不会自动送达，也没有离线补传。接收地址含私密配对码，当前 HTTP 传输不加密，请勿公开分享。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)

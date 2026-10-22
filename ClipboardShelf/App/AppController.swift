@@ -598,7 +598,7 @@ final class AppController: ObservableObject {
                     }
                     let sent = PasteService.sendPasteShortcut(to: target.processIdentifier)
                     self.statusMessage = sent
-                        ? "已向原应用发送粘贴快捷键；目标应用是否接收无法确认。"
+                        ? nil
                         : "已复制，请手动按 ⌘V；自动粘贴未发出。"
                 }
             }
