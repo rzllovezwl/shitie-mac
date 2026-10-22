@@ -68,7 +68,7 @@ struct SettingsView: View {
                     Button("复制接收地址") {
                         model.copyPhoneScreenshotEndpoint()
                     }
-                    Text("在 iPhone 快捷指令中，用“获取 URL 内容”向此地址 POST 截图文件。可在发送前判断 Wi-Fi 名称，避免离开指定网络时反复收到超时提醒；详细步骤见上方指南。手机和 Mac 需连接同一可信局域网；HTTP 传输不加密，地址包含私密配对码，请勿分享。")
+                    Text("点击上方指南可扫码导入快捷指令模板，再替换模板中的示例 URL 并关联截屏自动化。可在发送前判断 Wi-Fi 名称，避免离开指定网络时反复收到超时提醒。手机和 Mac 需连接同一可信局域网；HTTP 传输不加密，地址包含私密配对码，请勿分享。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

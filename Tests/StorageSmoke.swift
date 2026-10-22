@@ -60,10 +60,16 @@ struct StorageSmoke {
         try check(store.entries[0].id == imageEntry.id && (try Data(contentsOf: imageURL)) == image,
                   "重复复制未修复缺失的图片文件")
         let copiesBeforeImport = store.entries[0].copyCount
-        try check(try !store.importPhoneScreenshot(image, type: "public.png"),
-                  "重复送达的 iPhone 截图不应生成新卡片")
+        try check(try store.importPhoneScreenshot(image, type: "public.png"),
+                  "iPhone 上传与 Mac 已有图片相同时应更新来源")
+        try check(store.entries[0].id == imageEntry.id &&
+                  store.entries[0].sourceAppName == "iPhone 截图" &&
+                  store.entries[0].sourceAppBundleID == nil,
+                  "相同图片应保留原卡片并显示 iPhone 来源")
         try check(store.entries[0].copyCount == copiesBeforeImport,
                   "重复送达的 iPhone 截图不应增加复制次数")
+        try check(try !store.importPhoneScreenshot(image, type: "public.png"),
+                  "重复上传同一张 iPhone 截图不应再次更新")
         let phoneImage = Data(repeating: 0x52, count: 4096)
         try check(try store.importPhoneScreenshot(phoneImage, type: "public.png"),
                   "新的 iPhone 截图保存失败")

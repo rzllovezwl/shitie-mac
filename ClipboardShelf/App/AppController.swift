@@ -60,6 +60,7 @@ final class AppController: ObservableObject {
     @Published private(set) var phoneScreenshotReceiverStatus = "未开启"
     @Published private(set) var showsPhoneScreenshotFeatureCard: Bool
     let phoneScreenshotEndpoint: String
+    let phoneScreenshotSetupAddress: String
     @Published var isPaused: Bool {
         didSet { UserDefaults.standard.set(isPaused, forKey: "recordingPaused") }
     }
@@ -96,9 +97,9 @@ final class AppController: ObservableObject {
         phoneScreenshotReceivingEnabled = UserDefaults.standard.bool(
             forKey: PhoneScreenshotReceiver.enabledKey
         )
-        phoneScreenshotEndpoint = PhoneScreenshotReceiver.endpoint(
-            token: PhoneScreenshotReceiver.token()
-        )
+        let phoneScreenshotToken = PhoneScreenshotReceiver.token()
+        phoneScreenshotEndpoint = PhoneScreenshotReceiver.endpoint(token: phoneScreenshotToken)
+        phoneScreenshotSetupAddress = PhoneScreenshotReceiver.setupAddress(token: phoneScreenshotToken)
         var loaded: [AppShortcutAction: AppShortcut] = [:]
         for action in AppShortcutAction.allCases {
             let candidate = AppShortcutPreference.load(
@@ -217,6 +218,14 @@ final class AppController: ObservableObject {
         board.clearContents()
         board.setString(phoneScreenshotEndpoint, forType: .string)
         // The pairing URL is a secret, so never record our own settings copy.
+        clipboardChanges.markOwnWrite(changeCount: board.changeCount)
+    }
+
+    func copyPhoneScreenshotSetupAddress() {
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(phoneScreenshotSetupAddress, forType: .string)
+        // The setup URL includes the same pairing secret as the upload URL.
         clipboardChanges.markOwnWrite(changeCount: board.changeCount)
     }
 
@@ -931,7 +940,8 @@ final class AppController: ObservableObject {
 
         // A pairing URL can re-enter the pasteboard through Universal
         // Clipboard after being copied in Settings. Never persist that secret.
-        if board.string(forType: .string) == phoneScreenshotEndpoint {
+        if let pastedString = board.string(forType: .string),
+           pastedString == phoneScreenshotEndpoint || pastedString == phoneScreenshotSetupAddress {
             clipboardChanges.markHandled(changeCount: changeCount)
             return
         }

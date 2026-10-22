@@ -374,21 +374,36 @@ final class ClipboardHistoryStore {
         guard !data.isEmpty, data.count <= maximumImageBytes else { return false }
         _ = try requiredDatabase()
         let digest = Self.digest(data: data, prefix: "image")
-        if let existing = entries.first(where: { $0.digest == digest }) {
+        if let index = entries.firstIndex(where: { $0.digest == digest }) {
+            let existing = entries[index]
             if let name = existing.imageFileName, safeFileName(name) {
                 let url = imagesDirectory.appendingPathComponent(name)
                 if !fileManager.fileExists(atPath: url.path) {
                     try data.write(to: url, options: .atomic)
                 }
             }
-            return false
+            // The same bytes may already have arrived through Universal
+            // Clipboard or a Mac app while the iPhone upload was in flight.
+            // Keep one card and its real copy count, but show the latest
+            // acquisition channel instead of a misleading foreground app.
+            guard existing.sourceAppName != "iPhone 截图" ||
+                    existing.sourceAppBundleID != nil else { return false }
+            var updated = existing
+            updated.createdAt = max(now(), (entries.first?.createdAt ?? .distantPast).addingTimeInterval(0.001))
+            updated.sourceAppName = "iPhone 截图"
+            updated.sourceAppBundleID = nil
+            try requiredDatabase().upsert(updated)
+            entries.remove(at: index)
+            insertNewestFirst(updated)
+            return true
         }
         let id = UUID()
         let name = "\(id.uuidString).\(Self.imageExtension(for: type))"
         let url = imagesDirectory.appendingPathComponent(name)
         try data.write(to: url, options: .atomic)
+        let receivedAt = max(now(), (entries.first?.createdAt ?? .distantPast).addingTimeInterval(0.001))
         let entry = ClipboardEntry(
-            id: id, createdAt: now(), firstCopiedAt: nil, copyCount: nil,
+            id: id, createdAt: receivedAt, firstCopiedAt: nil, copyCount: nil,
             kind: .image, text: nil, imageFileName: name, imagePasteboardType: type,
             digest: digest, byteCount: data.count, sourceAppName: "iPhone 截图",
             sourceAppBundleID: nil

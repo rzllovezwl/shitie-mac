@@ -12,16 +12,19 @@ struct SourceAppIconView: View {
 
     var body: some View {
         ZStack {
-            if let icon {
+            if name == "iPhone 截图" {
+                Image(systemName: "apple.logo")
+                    .resizable()
+                    .scaledToFit()
+                    .foregroundStyle(LinearGradient(
+                        colors: [.red, .orange, .yellow, .green, .cyan, .blue, .purple],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ))
+            } else if let icon {
                 Image(nsImage: icon)
                     .resizable()
                     .scaledToFit()
                     .clipShape(RoundedRectangle(cornerRadius: size * 0.2))
-            } else if name == "iPhone 截图" {
-                Image(systemName: "iphone")
-                    .resizable()
-                    .scaledToFit()
-                    .foregroundStyle(.secondary)
             } else {
                 LucideIcon(.file, size: size * 0.75)
                     .foregroundStyle(.secondary)

@@ -5,9 +5,11 @@ struct PhoneScreenshotTransportSmoke {
     static func main() throws {
         let port: UInt16 = 52782
         let payload = Data([0x89, 0x50, 0x4e, 0x47])
+        let shortcut = Data("signed-shortcut-fixture".utf8)
         let lock = NSLock()
         var received: Data?
-        let receiver = PhoneScreenshotReceiver(token: "local-test-secret", port: port, onImage: { data, completion in
+        let receiver = PhoneScreenshotReceiver(token: "local-test-secret", port: port,
+                                               shortcutData: shortcut, onImage: { data, completion in
             lock.lock()
             received = data
             lock.unlock()
@@ -32,6 +34,18 @@ struct PhoneScreenshotTransportSmoke {
         precondition(recorded == payload, "uploaded bytes changed")
         let denied = try post(payload, to: address + "wrong-secret")
         precondition(denied == 403, "wrong pairing secret was accepted: \(denied)")
+        let base = "http://127.0.0.1:\(port)"
+        let (setupStatus, setupBody) = try get(base + "/v1/setup/local-test-secret")
+        precondition(setupStatus == 200 &&
+                     String(decoding: setupBody, as: UTF8.self).contains("/v1/shortcut/local-test-secret"),
+                     "authorized setup page was not served")
+        let (shortcutStatus, shortcutBody) = try get(base + "/v1/shortcut/local-test-secret")
+        precondition(shortcutStatus == 200 && shortcutBody == shortcut,
+                     "shortcut download bytes changed")
+        let (deniedSetup, _) = try get(base + "/v1/setup/wrong-secret")
+        precondition(deniedSetup == 403, "wrong setup pairing secret was accepted")
+        let (deniedShortcut, _) = try get(base + "/v1/shortcut/wrong-secret")
+        precondition(deniedShortcut == 403, "wrong shortcut pairing secret was accepted")
         print("Phone screenshot transport smoke test passed")
     }
 
@@ -51,5 +65,21 @@ struct PhoneScreenshotTransportSmoke {
         precondition(finished.wait(timeout: .now() + 5) == .success, "request timed out")
         if let failure { throw failure }
         return status
+    }
+
+    private static func get(_ address: String) throws -> (Int, Data) {
+        let finished = DispatchSemaphore(value: 0)
+        var status = -1
+        var body = Data()
+        var failure: Error?
+        URLSession.shared.dataTask(with: URL(string: address)!) { data, response, error in
+            status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            body = data ?? Data()
+            failure = error
+            finished.signal()
+        }.resume()
+        precondition(finished.wait(timeout: .now() + 5) == .success, "request timed out")
+        if let failure { throw failure }
+        return (status, body)
     }
 }

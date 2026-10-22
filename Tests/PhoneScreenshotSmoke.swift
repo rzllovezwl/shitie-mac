@@ -33,6 +33,17 @@ struct PhoneScreenshotSmoke {
             preconditionFailure("request without a length was accepted")
         } catch PhoneScreenshotHTTPParser.ParseError.lengthRequired {}
 
+        let get = PhoneScreenshotHTTPParser(maximumBodyBytes: 8)
+        let setup = try get.append(Data("GET /v1/setup/secret HTTP/1.1\r\nHost: local\r\n\r\n".utf8))
+        require(setup?.method == "GET" && setup?.body.isEmpty == true,
+                "setup GET must work without Content-Length")
+
+        let getWithBody = PhoneScreenshotHTTPParser(maximumBodyBytes: 8)
+        do {
+            _ = try getWithBody.append(Data("GET /v1/setup/secret HTTP/1.1\r\nContent-Length: 1\r\n\r\nX".utf8))
+            preconditionFailure("GET with a body was accepted")
+        } catch PhoneScreenshotHTTPParser.ParseError.invalidRequest {}
+
         print("Phone screenshot HTTP smoke test passed")
     }
 }

@@ -45,7 +45,8 @@ final class PhoneScreenshotHTTPParser {
             guard let first = lines.first else { throw ParseError.invalidRequest }
             let parts = first.split(separator: " ", omittingEmptySubsequences: true)
             guard parts.count == 3, parts[2] == "HTTP/1.1",
-                  parts[0] == "POST", parts[1].hasPrefix("/")
+                  (parts[0] == "POST" || parts[0] == "GET"),
+                  parts[1].hasPrefix("/")
             else { throw ParseError.invalidRequest }
             requestLine = (String(parts[0]), String(parts[1]))
             for line in lines.dropFirst() {
@@ -56,6 +57,14 @@ final class PhoneScreenshotHTTPParser {
                     .trimmingCharacters(in: .whitespaces)
             }
             expectsContinue = headers["expect"]?.lowercased() == "100-continue"
+            if parts[0] == "GET" {
+                guard headers["transfer-encoding"] == nil,
+                      headers["content-length"].map({ Int($0) == 0 }) ?? true
+                else { throw ParseError.invalidRequest }
+                contentLength = 0
+                return Request(method: "GET", path: String(parts[1]),
+                               headers: headers, body: Data())
+            }
             if let encoding = headers["transfer-encoding"]?.lowercased() {
                 guard encoding == "chunked", headers["content-length"] == nil else {
                     throw ParseError.invalidRequest

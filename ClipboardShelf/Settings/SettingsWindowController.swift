@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 @MainActor
@@ -210,6 +211,7 @@ private struct PhoneScreenshotGuideView: View {
     @ObservedObject var model: AppController
     let close: () -> Void
     @State private var didCopyAddress = false
+    @State private var didCopySetupAddress = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -263,15 +265,48 @@ private struct PhoneScreenshotGuideView: View {
                     .padding(16)
                     .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
 
+                    if model.phoneScreenshotReceivingEnabled {
+                        HStack(alignment: .center, spacing: 18) {
+                            if let code = qrCode(for: model.phoneScreenshotSetupAddress) {
+                                Image(nsImage: code)
+                                    .interpolation(.none)
+                                    .resizable()
+                                    .frame(width: 154, height: 154)
+                                    .padding(10)
+                                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                                    .accessibilityLabel("iPhone 安装页二维码")
+                            }
+                            VStack(alignment: .leading, spacing: 9) {
+                                Text("用 iPhone 扫码打开安装页")
+                                    .font(.headline)
+                                Text("安装页提供可导入的快捷指令模板和这台 Mac 的专属接收地址。扫码时两台设备需在同一局域网。")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Button(didCopySetupAddress ? "已复制安装页地址" : "复制安装页地址") {
+                                    model.copyPhoneScreenshotSetupAddress()
+                                    didCopySetupAddress = true
+                                }
+                                Text("安装页地址含私密配对码，请勿公开分享。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                    }
+
                     VStack(alignment: .leading, spacing: 13) {
                         Text("在 iPhone 上设置一次")
                             .font(.headline)
-                        guideStep(1, "新建截屏自动化",
-                                  "打开“快捷指令 → 自动化”，选择“截屏 → 已保存截屏时”；保存位置选“照片”，开启自动运行。")
-                        guideStep(2, "添加三个操作",
-                                  "依次添加“获取最新截屏”“URL”“获取 URL 内容”。将 Mac 上复制的完整接收地址填入“URL”。")
-                        guideStep(3, "发送截图文件",
-                                  "在“获取 URL 内容”中选 POST，请求体选“文件”，文件变量选“获取最新截屏”的结果。保存自动化。")
+                        guideStep(1, "导入现成模板",
+                                  "开启 Mac 接收后用 iPhone 扫上方二维码，在安装页下载模板；到“文件”里打开下载的 .shortcut 文件并添加到“快捷指令”。")
+                        guideStep(2, "替换模板里的示例地址",
+                                  "在安装页复制这台 Mac 的完整接收地址。打开已添加的快捷指令，把“URL”操作中的 example.invalid 示例地址替换为它。")
+                        guideStep(3, "关联截屏自动化",
+                                  "打开“快捷指令 → 自动化”，新建“截屏 → 已保存截屏时”，保存位置选“照片”，选择“运行快捷指令”并选刚导入的模板，设为自动运行。")
                         guideStep(4, "保存一张新截图验证",
                                   "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。成功后历史里会出现“iPhone 截图”卡片，并按声音设置播放提示音。")
                     }
@@ -279,7 +314,7 @@ private struct PhoneScreenshotGuideView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("减少离开 Wi-Fi 后的超时提醒")
                             .font(.headline)
-                        Text("可在 iPhone 自动化最前面加入“获取网络详细信息”，选择 Wi-Fi 网络的“网络名称”；再加入“如果”，设为网络名称等于家里或办公室使用的 Wi-Fi 名称。把“获取最新截屏 → URL → 获取 URL 内容”三个操作都放进“如果”分支，“否则”留空。")
+                        Text("可在 iPhone 自动化最前面加入“获取网络详细信息”，选择 Wi-Fi 网络的“网络名称”；再加入“如果”，设为网络名称等于家里或办公室使用的 Wi-Fi 名称。把“运行快捷指令”放进“如果”分支，“否则”留空。")
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                         Text("这样连接 5G 或其他 Wi-Fi 时会跳过发送，避免因离开指定网络而请求超时。名称相同仍不能保证 Mac 在线；Mac 休眠、地址变化或网络隔离时仍可能超时。")
@@ -332,5 +367,16 @@ private struct PhoneScreenshotGuideView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func qrCode(for address: String) -> NSImage? {
+        let generator = CIFilter.qrCodeGenerator()
+        generator.message = Data(address.utf8)
+        generator.correctionLevel = "M"
+        guard let output = generator.outputImage,
+              let image = CIContext().createCGImage(output, from: output.extent) else {
+            return nil
+        }
+        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
     }
 }

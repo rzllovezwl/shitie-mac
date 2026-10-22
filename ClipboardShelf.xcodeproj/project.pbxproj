@@ -16,6 +16,7 @@
 		2C583D5F0433BBC2CC7FEF04 /* ClipboardTextClassification.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4DABEF5E09FB6A4A7902E /* ClipboardTextClassification.swift */; };
 		2D9B09C60AD837B3DB2C3600 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796832E4D868F352FF7442C9 /* SettingsView.swift */; };
 		35E7E8B4FA082B2FFE297CB1 /* ShortcutKeyCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AFCAA77FE5C2A75D7B76505 /* ShortcutKeyCapture.swift */; };
+		383AE80CB05B67E57F4A8700 /* ClipHoook-iPhone-Screenshot.shortcut in Resources */ = {isa = PBXBuildFile; fileRef = 203CD47CED59CA28D12BA787 /* ClipHoook-iPhone-Screenshot.shortcut */; };
 		3A83411B0E5197F07523717B /* AppController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4B2E95C0834FCF0BCB676B3 /* AppController.swift */; };
 		4244695508B00CEB6CE5AD83 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9433378679025CEF820DCFEA /* ShelfView.swift */; };
 		474ACF6A764785919B2AC097 /* PhoneScreenshotHTTPParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 884F69A40A4626465868B8F7 /* PhoneScreenshotHTTPParser.swift */; };
@@ -60,6 +61,7 @@
 		07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Lucide-LICENSE.txt"; sourceTree = "<group>"; };
 		0A93DD9D17C127EFEAB22B57 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteService.swift; sourceTree = "<group>"; };
 		151904E2CC53A2AA44A47107 /* FileReferencePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReferencePreview.swift; sourceTree = "<group>"; };
+		203CD47CED59CA28D12BA787 /* ClipHoook-iPhone-Screenshot.shortcut */ = {isa = PBXFileReference; path = "ClipHoook-iPhone-Screenshot.shortcut"; sourceTree = "<group>"; };
 		21BAE11AEB625C1C46A9865D /* ZoomableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImageView.swift; sourceTree = "<group>"; };
 		2CD554FF583A697BF00D8EB4 /* ShelfKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfKeyboard.swift; sourceTree = "<group>"; };
 		40E4A10857FC2778849FF889 /* LucideIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucideIcon.swift; sourceTree = "<group>"; };
@@ -202,6 +204,7 @@
 		952943E0261CF10A35B86DCE /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				203CD47CED59CA28D12BA787 /* ClipHoook-iPhone-Screenshot.shortcut */,
 				51B2FFEDA1E2ED4AC32AF7E0 /* CopyChime.wav */,
 				837BFDE68D5F1EC13126545B /* Devicon-LICENSE.txt */,
 				07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */,
@@ -293,6 +296,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AEA54A16A471265CF458C696 /* Assets.xcassets in Resources */,
+				383AE80CB05B67E57F4A8700 /* ClipHoook-iPhone-Screenshot.shortcut in Resources */,
 				BAC15D26C999BE89C8C5DC8F /* CopyChime.wav in Resources */,
 				20AF7A5B1268BDFBEC5BE618 /* Devicon-LICENSE.txt in Resources */,
 				73702E261B060BD8CC3E4DE0 /* Lucide-LICENSE.txt in Resources */,
