@@ -101,6 +101,7 @@ enum ClipboardPasteboardWriter {
             return board.writeObjects(urls)
         }
 
+        let allImages = members.allSatisfy { $0.kind == .image }
         var items: [NSPasteboardItem] = []
         for entry in members {
             let item = NSPasteboardItem()
@@ -115,7 +116,14 @@ enum ClipboardPasteboardWriter {
                 }
             case .image:
                 guard let url = store.imageURL(for: entry),
-                      let data = try? Data(contentsOf: url),
+                      let data = try? Data(contentsOf: url) else { return false }
+                // Many destinations import a collection of files but inspect
+                // only the first raw image item. Offer each saved image as a
+                // file URL as well, while retaining its pixel representation.
+                if allImages && !item.setString(url.absoluteString, forType: .fileURL) {
+                    return false
+                }
+                guard
                       item.setData(data, forType: NSPasteboard.PasteboardType(entry.imagePasteboardType ?? "public.png")) else {
                     return false
                 }

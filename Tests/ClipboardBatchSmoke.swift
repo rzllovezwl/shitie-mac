@@ -175,6 +175,34 @@ struct ClipboardBatchSmoke {
         try check(repeatedReload.rootEntries[0].groupMembers.count == 2,
                   "重复成员的顺序未持久保存")
 
+        let imageStore = ClipboardHistoryStore(directory: root.appendingPathComponent("images"), defaults: defaults)
+        let firstImage = try pngPixel(red: 255, green: 0)
+        let secondImage = try pngPixel(red: 0, green: 255)
+        _ = try imageStore.addImage(firstImage, type: "public.png", sourceAppName: "iPhone 截图")
+        let firstImageEntry = imageStore.entries[0]
+        _ = try imageStore.addImage(secondImage, type: "public.png", sourceAppName: "iPhone 截图")
+        let secondImageEntry = imageStore.entries[0]
+        try check(try imageStore.recordBatchCopy(
+            of: [firstImageEntry.id, secondImageEntry.id], automaticallyGroup: true
+        ), "两张图片未成组")
+        let imageGroup = imageStore.rootEntries[0]
+        try check(ClipboardPasteboardWriter.write(imageGroup, from: imageStore, to: destinationBoard),
+                  "两张图片无法回写剪贴板")
+        let imageItems = destinationBoard.pasteboardItems ?? []
+        try check(imageItems.count == 2 &&
+                  imageItems[0].data(forType: .png) == firstImage &&
+                  imageItems[1].data(forType: .png) == secondImage,
+                  "两张图片的内容或顺序丢失")
+        let imageURLs = (destinationBoard.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+        ) as? [NSURL] ?? []).map { $0 as URL }
+        guard let savedFirstImage = imageStore.imageURL(for: firstImageEntry),
+              let savedSecondImage = imageStore.imageURL(for: secondImageEntry) else {
+            throw ClipboardBatchTestError.failed("成组图片没有保存到磁盘")
+        }
+        try check(imageURLs == [savedFirstImage, savedSecondImage],
+                  "两张图片未提供可供目标应用批量读取的文件 URL")
+
         let migrationFolder = root.appendingPathComponent("migration")
         do {
             let oldStore = ClipboardHistoryStore(directory: migrationFolder, defaults: defaults)
@@ -223,6 +251,23 @@ struct ClipboardBatchSmoke {
             maximumTextBytes: 32 * 1_024 * 1_024,
             maximumRichTextBytes: 15 * 1_024 * 1_024
         )
+    }
+
+    private static func pngPixel(red: CGFloat, green: CGFloat) throws -> Data {
+        guard let image = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 4, bitsPerPixel: 32
+        ) else {
+            throw ClipboardBatchTestError.failed("无法生成图片测试数据")
+        }
+        image.setColor(NSColor(calibratedRed: red / 255, green: green / 255,
+                               blue: 0, alpha: 1), atX: 0, y: 0)
+        guard let data = image.representation(using: .png, properties: [:]) else {
+            throw ClipboardBatchTestError.failed("无法编码图片测试数据")
+        }
+        return data
     }
 
     private static func check(_ value: @autoclosure () throws -> Bool, _ message: String) throws {
