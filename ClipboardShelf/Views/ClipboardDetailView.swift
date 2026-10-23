@@ -14,6 +14,9 @@ struct ClipboardDetailView: View {
     let loadFileReferenceImage: () async -> NSImage?
     let makeFilePreviewAccess: () -> FilePreviewAccess?
     let onCopy: () -> Void
+    let canPin: Bool
+    let isPinned: Bool
+    let onPin: () -> Void
     let onRevealOriginalFile: () -> Bool
     let onSaveFileCopy: () -> Void
     let onDelete: () -> Void
@@ -84,6 +87,13 @@ struct ClipboardDetailView: View {
                     .controlSize(.small)
                     .disabled(entry.kind == .unavailableImage
                               || (entry.kind == .fileReference && !fileReferenceAvailable))
+                if showsImageZoom && canPin {
+                    Button(action: onPin) {
+                        Label(isPinned ? "显示贴图" : "钉在桌面", systemImage: "pin")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                 if entry.kind == .fileReference {
                     Button(action: onSaveFileCopy) {
                         Text(fileHasSavedCopy ? "更新副本…" : "保存副本…")

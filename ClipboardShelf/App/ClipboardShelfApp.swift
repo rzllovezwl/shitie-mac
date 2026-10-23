@@ -46,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            AppController.shared.flushPinnedImageFrames()
+        }
+    }
+
     func applicationDidBecomeActive(_ notification: Notification) {
         Task { @MainActor in
             SettingsWindowController.shared.finishOpeningAfterActivation()

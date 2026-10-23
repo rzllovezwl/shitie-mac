@@ -56,6 +56,8 @@ final class AppController: ObservableObject {
     @Published private(set) var historyStorageBytes: Int64 = 0
     @Published private(set) var migrationBackupBytes: Int64 = 0
     @Published private(set) var recoveryBytes: Int64 = 0
+    @Published private(set) var pinnedImageCount = 0
+    @Published private(set) var pinnedStorageBytes: Int64 = 0
     @Published private(set) var phoneScreenshotReceivingEnabled: Bool
     @Published private(set) var phoneScreenshotReceiverStatus = "未开启"
     @Published private(set) var showsPhoneScreenshotFeatureCard: Bool
@@ -66,6 +68,8 @@ final class AppController: ObservableObject {
     }
 
     private let store: ClipboardHistoryStore
+    private var pinnedStore: PinnedImageStore?
+    private var pinnedWindows: PinnedImageWindowManager?
     private var phoneScreenshotReceiver: PhoneScreenshotReceiver?
     private let hotKey = GlobalHotKey()
     private lazy var panel = PanelController(model: self)
@@ -166,6 +170,7 @@ final class AppController: ObservableObject {
         }
         _ = CopySoundPlayer.shared
         _ = panel
+        configurePinnedImages()
         if phoneScreenshotReceivingEnabled { startPhoneScreenshotReceiver() }
         activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
@@ -641,42 +646,52 @@ final class AppController: ObservableObject {
     func confirmClearHistory() {
         let alert = NSAlert()
         alert.messageText = "清空剪贴板历史？"
-        alert.informativeText = "这会删除本机保存的历史记录、图片、富文本和文件副本，无法撤销；不会删除原文件或清空系统剪贴板。"
+        alert.informativeText = "这会删除本机保存的历史记录及其贴图副本，无法撤销；不会删除原文件或清空系统剪贴板。"
         alert.addButton(withTitle: "清空")
         alert.addButton(withTitle: "取消")
         alert.alertStyle = .warning
         if panel.performModalInteraction({ alert.runModal() }) == .alertFirstButtonReturn {
-            do {
-                try store.clear()
-                entries = []
-                refreshStorageSizes()
-                statusMessage = "历史记录已清空"
-            } catch {
-                entries = store.rootEntries
-                refreshStorageSizes()
-                statusMessage = "清空失败：\(error.localizedDescription)"
+            var failure: Error?
+            do { try store.clear() }
+            catch { failure = error }
+            // The history database may already be empty if removing one of its
+            // payload files failed. In that case the explicit clear still
+            // removes the corresponding independent pin snapshots.
+            if store.entries.isEmpty {
+                do { try pinnedWindows?.unpinAll() }
+                catch { failure = failure ?? error }
             }
+            entries = store.rootEntries
+            refreshStorageSizes()
+            statusMessage = failure.map { "清空未完成：\($0.localizedDescription)" }
+                ?? "历史记录和对应贴图已清空"
         }
     }
 
     func confirmDelete(_ entry: ClipboardEntry) {
         let alert = NSAlert()
         alert.messageText = "删除这条历史记录？"
-        alert.informativeText = "只删除本机保存的这条记录及其副本，不会删除原文件或清空当前系统剪贴板。"
+        alert.informativeText = "只删除本机保存的这条记录及其副本；若已钉在桌面，对应贴图也会取消。不会删除原文件或清空系统剪贴板。"
         alert.addButton(withTitle: "删除")
         alert.addButton(withTitle: "取消")
         alert.alertStyle = .warning
         guard panel.performModalInteraction({ alert.runModal() }) == .alertFirstButtonReturn else { return }
-        do {
-            try store.delete(entry)
-            entries = store.rootEntries
-            refreshStorageSizes()
+        var failure: Error?
+        do { try store.delete(entry) }
+        catch { failure = error }
+        if !store.entries.contains(where: { $0.id == entry.id }) {
+            if let pin = pinnedStore?.record(for: entry.id) {
+                do { try pinnedWindows?.unpin(pin.id) }
+                catch { failure = failure ?? error }
+            }
+        }
+        entries = store.rootEntries
+        refreshStorageSizes()
+        if let failure {
+            statusMessage = "删除未完成：\(failure.localizedDescription)"
+        } else {
             statusMessage = nil
             showToast("已删除")
-        } catch {
-            entries = store.rootEntries
-            refreshStorageSizes()
-            statusMessage = "删除失败：\(error.localizedDescription)"
         }
     }
 
@@ -761,6 +776,91 @@ final class AppController: ObservableObject {
 
     func imageURL(for entry: ClipboardEntry) -> URL? {
         store.imageURL(for: entry)
+    }
+
+    func canPinImage(_ entry: ClipboardEntry) -> Bool {
+        guard entry.isImagePreviewable else { return false }
+        if entry.kind == .image { return store.imageURL(for: entry) != nil }
+        return store.fileReferenceIsAvailable(entry)
+    }
+
+    func isPinnedImage(_ entry: ClipboardEntry) -> Bool {
+        pinnedStore?.record(for: entry.id) != nil
+    }
+
+    func pinImage(_ entry: ClipboardEntry) {
+        guard canPinImage(entry), let pinnedStore, let pinnedWindows else {
+            statusMessage = PinnedImageError.imageUnavailable.localizedDescription
+            return
+        }
+        do {
+            let title = entry.kind == .image
+                ? (entry.sourceAppName == "iPhone 截图" ? "iPhone 截图" : "图片")
+                : entry.title
+            let record: PinnedImageRecord
+            if entry.kind == .image {
+                guard let url = store.imageURL(for: entry) else { throw PinnedImageError.imageUnavailable }
+                record = try pinnedStore.add(sourceEntryID: entry.id, sourceURL: url, title: title)
+            } else {
+                guard let result = store.withUsableFileURL(for: entry, { url in
+                    Result { try pinnedStore.add(sourceEntryID: entry.id, sourceURL: url, title: title) }
+                }) else { throw PinnedImageError.imageUnavailable }
+                record = try result.get()
+            }
+            pinnedImageCount = pinnedStore.count
+            pinnedStorageBytes = pinnedStore.storageBytes
+            panel.hide(restorePreviousApplication: false) { [weak self] in
+                do { try pinnedWindows.show(record) }
+                catch { self?.statusMessage = "显示贴图失败：\(error.localizedDescription)" }
+            }
+        } catch {
+            statusMessage = "钉住图片失败：\(error.localizedDescription)"
+        }
+    }
+
+    func showPinnedImages() {
+        pinnedWindows?.showAll()
+    }
+
+    func confirmUnpinAllImages() {
+        guard pinnedImageCount > 0 else { return }
+        let alert = NSAlert()
+        alert.messageText = "取消全部贴图？"
+        alert.informativeText = "这会关闭所有贴图窗口并删除贴图副本；剪贴板历史记录仍保留。"
+        alert.addButton(withTitle: "取消全部钉住")
+        alert.addButton(withTitle: "返回")
+        alert.alertStyle = .warning
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do { try pinnedWindows?.unpinAll() }
+        catch { statusMessage = "取消贴图失败：\(error.localizedDescription)" }
+    }
+
+    func flushPinnedImageFrames() {
+        pinnedWindows?.flushFrames()
+    }
+
+    private func configurePinnedImages() {
+        do {
+            let pinnedStore = try PinnedImageStore(directory: store.pinnedImagesDirectory)
+            self.pinnedStore = pinnedStore
+            let manager = PinnedImageWindowManager(
+                store: pinnedStore,
+                onChange: { [weak self] in
+                    self?.pinnedImageCount = pinnedStore.count
+                    self?.pinnedStorageBytes = pinnedStore.storageBytes
+                },
+                onError: { [weak self] message in self?.statusMessage = message },
+                onPasteboardWrite: { [weak self] changeCount in
+                    self?.clipboardChanges.markOwnWrite(changeCount: changeCount)
+                }
+            )
+            pinnedWindows = manager
+            pinnedImageCount = pinnedStore.count
+            pinnedStorageBytes = pinnedStore.storageBytes
+            manager.restore()
+        } catch {
+            statusMessage = "贴图记录无法加载：\(error.localizedDescription)"
+        }
     }
 
     func imagePreviewPixelSize(for entry: ClipboardEntry) -> CGSize? {
@@ -1070,6 +1170,8 @@ final class AppController: ObservableObject {
         historyStorageBytes = store.activeStorageBytes
         migrationBackupBytes = store.migrationBackupBytes
         recoveryBytes = store.recoveryBytes
+        pinnedStorageBytes = pinnedStore?.storageBytes ?? 0
+        pinnedImageCount = pinnedStore?.count ?? 0
     }
 
     private func defaultCopyMode(for entry: ClipboardEntry) -> ClipboardPasteboardWriter.Mode {

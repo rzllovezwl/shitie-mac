@@ -85,6 +85,9 @@ struct ClipboardCardView: View {
     let onSelect: (NSEvent.ModifierFlags) -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    let canPin: Bool
+    let isPinned: Bool
+    let onPin: () -> Void
     let onDelete: () -> Void
     let onOpenSource: () -> Void
     let onBeginDrag: () -> ClipboardDragPayload?
@@ -107,7 +110,7 @@ struct ClipboardCardView: View {
         } else {
             groupPrefix = ""
         }
-        return groupPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴，按住拖到其他应用"
+        return groupPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴，按住拖到其他应用，拖动时按 Esc 取消"
     }
 
     private var textScale: CGFloat {
@@ -232,6 +235,8 @@ struct ClipboardCardView: View {
                 onSelect: onSelect,
                 onPaste: onPaste,
                 onCopy: onCopy,
+                onPin: canPin ? onPin : nil,
+                pinTitle: isPinned ? "显示贴图" : "钉在桌面",
                 onDelete: onDelete,
                 onBeginDrag: onBeginDrag,
                 onDragStarted: onDragStarted,
@@ -505,6 +510,8 @@ struct ImmediateCardInteraction: NSViewRepresentable {
     let onSelect: (NSEvent.ModifierFlags) -> Void
     let onPaste: () -> Void
     let onCopy: () -> Void
+    var onPin: (() -> Void)? = nil
+    var pinTitle = "钉在桌面"
     let onDelete: () -> Void
     var onBeginDrag: (() -> ClipboardDragPayload?)? = nil
     var onDragStarted: (() -> Void)? = nil
@@ -522,13 +529,15 @@ struct ImmediateCardInteraction: NSViewRepresentable {
         view.onPaste = onPaste
         view.onCopy = onCopy
         view.onDelete = onDelete
+        view.onPin = onPin
+        view.pinTitle = pinTitle
         view.onBeginDrag = onBeginDrag
         view.onDragStarted = onDragStarted
         view.onEndDrag = onEndDrag
         view.dragPreviewURL = dragPreviewURL
         view.dragSymbolName = dragSymbolName
         view.deferSelectionUntilMouseUp = deferSelectionUntilMouseUp
-        view.toolTip = onBeginDrag == nil ? nil : "按住卡片拖到其他应用"
+        view.toolTip = onBeginDrag == nil ? nil : "按住卡片拖到其他应用；拖动时按 Esc 取消"
     }
 }
 
@@ -537,6 +546,8 @@ final class CardInteractionView: NSView, NSDraggingSource {
     var onPaste: (() -> Void)?
     var onCopy: (() -> Void)?
     var onDelete: (() -> Void)?
+    var onPin: (() -> Void)?
+    var pinTitle = "钉在桌面"
     var onBeginDrag: (() -> ClipboardDragPayload?)?
     var onDragStarted: (() -> Void)?
     var onEndDrag: ((Bool) -> Void)?
@@ -624,6 +635,8 @@ final class CardInteractionView: NSView, NSDraggingSource {
         activeDragPayload = nil
         draggingStarted = false
         dragProvider = nil
+        // AppKit reports .none when Esc cancels the system drag. The panel
+        // controller then animates the shelf back to its original position.
         onEndDrag?(operation != [])
     }
 
@@ -660,6 +673,10 @@ final class CardInteractionView: NSView, NSDraggingSource {
         let menu = NSMenu()
         let copyItem = menu.addItem(withTitle: "复制", action: #selector(copyEntry), keyEquivalent: "")
         copyItem.target = self
+        if onPin != nil {
+            let pinItem = menu.addItem(withTitle: pinTitle, action: #selector(pinEntry), keyEquivalent: "")
+            pinItem.target = self
+        }
         let deleteItem = menu.addItem(withTitle: "删除记录…", action: #selector(deleteEntry), keyEquivalent: "")
         deleteItem.target = self
         NSMenu.popUpContextMenu(menu, with: event, for: self)
@@ -667,6 +684,10 @@ final class CardInteractionView: NSView, NSDraggingSource {
 
     @objc private func copyEntry() {
         onCopy?()
+    }
+
+    @objc private func pinEntry() {
+        onPin?()
     }
 
     @objc private func deleteEntry() {

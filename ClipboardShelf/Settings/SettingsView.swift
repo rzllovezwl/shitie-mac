@@ -233,6 +233,22 @@ struct SettingsView: View {
                 .disabled(model.entries.isEmpty)
             }
 
+            Section("桌面贴图") {
+                historyStat("已钉住", value: "\(model.pinnedImageCount) 张", help: .pinnedStorage)
+                LabeledContent("贴图副本占用", value: ByteCountFormatter.string(
+                    fromByteCount: model.pinnedStorageBytes, countStyle: .file
+                ))
+                Text("右键点击图片卡片，或在图片详情中选择“钉在桌面”。贴图副本不计入历史存储上限。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                if model.pinnedImageCount > 0 {
+                    Button("显示全部贴图") { model.showPinnedImages() }
+                    Button("取消全部贴图…", role: .destructive) {
+                        model.confirmUnpinAllImages()
+                    }
+                }
+            }
+
             Section("快捷键与权限") {
                 ForEach(AppShortcutAction.allCases, id: \.self) { action in
                     shortcutRow(action)
@@ -376,12 +392,13 @@ struct SettingsView: View {
 }
 
 private enum HistoryStorageHelp {
-    case savedCount, activeStorage, oldBackup, recoveryFiles
+    case savedCount, activeStorage, pinnedStorage, oldBackup, recoveryFiles
 
     var title: String {
         switch self {
         case .savedCount: "已保存"
         case .activeStorage: "实际占用"
+        case .pinnedStorage: "已钉住"
         case .oldBackup: "旧历史备份"
         case .recoveryFiles: "未关联的恢复文件"
         }
@@ -392,7 +409,9 @@ private enum HistoryStorageHelp {
         case .savedCount:
             "当前能在面板里搜索和使用的历史记录数量。重复复制同一内容通常会合并成一条，并更新最近复制时间，所以它不是你总共按过多少次复制。"
         case .activeStorage:
-            "当前历史记录和它们的文字、图片、富文本、缩略图、文件副本及数据库在本机占用的空间。只记录文件位置时，原文件本身不算在这里；旧历史备份和恢复文件也另算。"
+            "当前历史记录和它们的文字、图片、富文本、缩略图、文件副本及数据库在本机占用的空间。桌面贴图副本、旧历史备份和恢复文件另算。"
+        case .pinnedStorage:
+            "钉在桌面的图片有独立副本。历史自动到期后仍保留贴图；主动删除对应历史记录或清空历史时，会同时取消贴图。关闭贴图窗口只取消钉住，不删除仍存在的历史记录。"
         case .oldBackup:
             "升级历史存储方式时保留的旧数据，就像迁移前的保险副本。它不出现在面板里，也不计入当前历史的存储上限。确认旧记录已完整迁入后再删除；删除后不能靠这份备份回退。"
         case .recoveryFiles:

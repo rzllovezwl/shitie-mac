@@ -31,6 +31,16 @@ struct MenuBarContent: View {
             }
         }
 
+        if model.pinnedImageCount > 0 {
+            Divider()
+            Button("显示全部贴图（\(model.pinnedImageCount)）") {
+                model.showPinnedImages()
+            }
+            Button("取消全部贴图…", role: .destructive) {
+                model.confirmUnpinAllImages()
+            }
+        }
+
         Divider()
 
         Toggle(isOn: $model.isPaused) {

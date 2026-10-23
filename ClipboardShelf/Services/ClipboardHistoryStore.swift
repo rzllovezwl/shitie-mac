@@ -185,6 +185,7 @@ final class ClipboardHistoryStore {
 
     var migrationBackupBytes: Int64 { diskBytes(in: migrationBackupURL) }
     var recoveryBytes: Int64 { diskBytes(in: recoveryDirectory) }
+    var pinnedImagesDirectory: URL { directory.appendingPathComponent("PinnedImages", isDirectory: true) }
 
     func imageURL(for entry: ClipboardEntry) -> URL? {
         guard let name = entry.imageFileName, safeFileName(name) else { return nil }

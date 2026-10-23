@@ -27,8 +27,10 @@
 		50FFEDE7D432F0BC680B1D0F /* TextPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 441A7EB81A9434859174B183 /* TextPreviewView.swift */; };
 		5364292EED75CCAAED2E2C6F /* HistoryStoragePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6848E038977CC760FA24A0B5 /* HistoryStoragePolicy.swift */; };
 		575E258C889BADA1F0737459 /* ClipboardHistoryDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC18065F2456EDEAA9F0609 /* ClipboardHistoryDatabase.swift */; };
+		62B11610D1FFEE5FF1D98CC7 /* PinnedImageWindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F30D6DC4BF053A4DE07E91D /* PinnedImageWindowManager.swift */; };
 		6E58F2B67BD7743845808000 /* ClipboardChangeTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAC5B2FDD31E3FF76313AEB /* ClipboardChangeTracker.swift */; };
 		73702E261B060BD8CC3E4DE0 /* Lucide-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */; };
+		82C9ABAE509D9A64B39D4C61 /* PinnedImageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C588DA20D10F6A9D16A63FD /* PinnedImageStore.swift */; };
 		84A08607DE7D1E5E2CF916CF /* CopySoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 760009205A79787AC7F119AC /* CopySoundPlayer.swift */; };
 		8555C38FC71AC89261861971 /* LucideIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40E4A10857FC2778849FF889 /* LucideIcon.swift */; };
 		876D5E13B29108985503037C /* AppShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488169DE03130CDBDF6DAE58 /* AppShortcut.swift */; };
@@ -60,10 +62,12 @@
 		069106AD7CF63B1DF614FE7D /* ClipboardBatchCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardBatchCapture.swift; sourceTree = "<group>"; };
 		07A047D936625500C809CDF9 /* Lucide-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Lucide-LICENSE.txt"; sourceTree = "<group>"; };
 		0A93DD9D17C127EFEAB22B57 /* PasteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteService.swift; sourceTree = "<group>"; };
+		0C588DA20D10F6A9D16A63FD /* PinnedImageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedImageStore.swift; sourceTree = "<group>"; };
 		151904E2CC53A2AA44A47107 /* FileReferencePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileReferencePreview.swift; sourceTree = "<group>"; };
 		203CD47CED59CA28D12BA787 /* ClipHoook-iPhone-Screenshot.shortcut */ = {isa = PBXFileReference; path = "ClipHoook-iPhone-Screenshot.shortcut"; sourceTree = "<group>"; };
 		21BAE11AEB625C1C46A9865D /* ZoomableImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImageView.swift; sourceTree = "<group>"; };
 		2CD554FF583A697BF00D8EB4 /* ShelfKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfKeyboard.swift; sourceTree = "<group>"; };
+		2F30D6DC4BF053A4DE07E91D /* PinnedImageWindowManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedImageWindowManager.swift; sourceTree = "<group>"; };
 		40E4A10857FC2778849FF889 /* LucideIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucideIcon.swift; sourceTree = "<group>"; };
 		441A7EB81A9434859174B183 /* TextPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewView.swift; sourceTree = "<group>"; };
 		47A1616E87745528CF58C2A7 /* TextPreviewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextPreviewRenderer.swift; sourceTree = "<group>"; };
@@ -123,6 +127,7 @@
 				B5232DCA2601386A50EDCE77 /* PasteTargetFocus.swift */,
 				884F69A40A4626465868B8F7 /* PhoneScreenshotHTTPParser.swift */,
 				C9396CEEBAEEEAF6CF9ADCF4 /* PhoneScreenshotReceiver.swift */,
+				0C588DA20D10F6A9D16A63FD /* PinnedImageStore.swift */,
 				47A1616E87745528CF58C2A7 /* TextPreviewRenderer.swift */,
 			);
 			path = Services;
@@ -165,6 +170,7 @@
 			children = (
 				D280CEAD9C2985B8DCFAB589 /* PanelController.swift */,
 				584E705C84F1D02F57B7B960 /* PanelLayout.swift */,
+				2F30D6DC4BF053A4DE07E91D /* PinnedImageWindowManager.swift */,
 			);
 			path = Panel;
 			sourceTree = "<group>";
@@ -365,6 +371,8 @@
 				CD418F2A781A8F56B38A65CE /* PasteTargetFocus.swift in Sources */,
 				474ACF6A764785919B2AC097 /* PhoneScreenshotHTTPParser.swift in Sources */,
 				CC2ED36A3AEFD8E5A97E5320 /* PhoneScreenshotReceiver.swift in Sources */,
+				82C9ABAE509D9A64B39D4C61 /* PinnedImageStore.swift in Sources */,
+				62B11610D1FFEE5FF1D98CC7 /* PinnedImageWindowManager.swift in Sources */,
 				47CFAB379B1E338BAE568E22 /* PrivacyPolicyView.swift in Sources */,
 				C6C11C38D13455AC741FC04D /* RecordingExclusionPolicy.swift in Sources */,
 				9EA43BF9AFF14F039DBE4263 /* ReleaseHistory.swift in Sources */,
