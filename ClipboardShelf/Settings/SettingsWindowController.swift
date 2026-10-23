@@ -236,6 +236,34 @@ private struct PhoneScreenshotGuideView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if model.phoneScreenshotReceivingEnabled {
+                        HStack(alignment: .center, spacing: 18) {
+                            if let code = qrCode(for: PhoneScreenshotReceiver.templateAddress) {
+                                Image(nsImage: code)
+                                    .interpolation(.none)
+                                    .resizable()
+                                    .frame(width: 154, height: 154)
+                                    .padding(10)
+                                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                                    .accessibilityLabel("iCloud 快捷指令模板二维码")
+                            }
+                            VStack(alignment: .leading, spacing: 9) {
+                                Text("用 iPhone 扫码添加模板")
+                                    .font(.headline)
+                                Text("添加后，点下方“复制接收地址”，把地址完整填入模板的“URL”操作，替换示例文字。")
+                                    .font(.subheadline)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("扫码添加无需同一 Wi-Fi；截图直传需同一可信局域网。模板链接不含私密地址。")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
+                    }
+
                     HStack(alignment: .top, spacing: 12) {
                         Image(systemName: model.phoneScreenshotReceivingEnabled
                               ? "checkmark.circle.fill" : "circle.dotted")
@@ -263,34 +291,6 @@ private struct PhoneScreenshotGuideView: View {
                     }
                     .padding(16)
                     .background(Color.accentColor.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
-
-                    if model.phoneScreenshotReceivingEnabled {
-                        HStack(alignment: .center, spacing: 18) {
-                            if let code = qrCode(for: PhoneScreenshotReceiver.templateAddress) {
-                                Image(nsImage: code)
-                                    .interpolation(.none)
-                                    .resizable()
-                                    .frame(width: 154, height: 154)
-                                    .padding(10)
-                                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                                    .accessibilityLabel("iCloud 快捷指令模板二维码")
-                            }
-                            VStack(alignment: .leading, spacing: 9) {
-                                Text("用 iPhone 扫码添加模板")
-                                    .font(.headline)
-                                Text("添加后，点上方“复制接收地址”，把地址完整填入模板的“URL”操作，替换示例文字。")
-                                    .font(.subheadline)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                Text("扫码添加无需同一 Wi-Fi；截图直传需同一可信局域网。模板链接不含私密地址。")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.secondary.opacity(0.09), in: RoundedRectangle(cornerRadius: 14))
-                    }
 
                     VStack(alignment: .leading, spacing: 13) {
                         Text("在 iPhone 上设置一次")
