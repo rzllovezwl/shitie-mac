@@ -477,11 +477,17 @@ final class PanelController {
         isExternalDragActive = true
         dragCancellationGraceUntil = 0
         // Keep the source view alive for AppKit's drag session while uncovering
-        // the destination beneath this high-level panel.
-        panel.alphaValue = 0
+        // the destination beneath this high-level panel. Use the same exit
+        // movement as a normal dismissal, but leave the window ordered in.
         panel.ignoresMouseEvents = true
-        detailPanel?.alphaValue = 0
         detailPanel?.ignoresMouseEvents = true
+        let endFrame = PanelLayout.offscreenFrame(from: targetFrame, placement: currentPlacement)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().setFrame(endFrame, display: true)
+            detailPanel?.animator().alphaValue = 0
+        }
     }
 
     func finishExternalDrag(didDrop: Bool) {
@@ -492,10 +498,14 @@ final class PanelController {
             // Activation notifications from the target can arrive after the
             // drag callback. Keep them from closing the restored shelf.
             dragCancellationGraceUntil = ProcessInfo.processInfo.systemUptime + 0.35
-            panel.alphaValue = 1
             panel.ignoresMouseEvents = false
-            detailPanel?.alphaValue = 1
             detailPanel?.ignoresMouseEvents = false
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.24
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel.animator().setFrame(targetFrame, display: true)
+                detailPanel?.animator().alphaValue = 1
+            }
             let focusPanel = detailPanel.flatMap { $0.isVisible ? $0 : nil } ?? panel
             focusPanel.makeKeyAndOrderFront(nil)
             focusPanel.orderFrontRegardless()

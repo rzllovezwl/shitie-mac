@@ -611,6 +611,9 @@ final class CardInteractionView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
+        // The shelf itself slides away during the drag, so a failed drop
+        // should not send the drag image back to its former screen position.
+        session.animatesToStartingPositionsOnCancelOrFail = false
         onDragStarted?()
     }
 
