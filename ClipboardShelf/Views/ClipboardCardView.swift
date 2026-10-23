@@ -110,7 +110,8 @@ struct ClipboardCardView: View {
         } else {
             groupPrefix = ""
         }
-        return groupPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴，按住拖到其他应用，拖动时按 Esc 取消"
+        let pinnedPrefix = isPinned ? "已钉在桌面，" : ""
+        return groupPrefix + pinnedPrefix + entry.title + "，单击选中，空格查看或收起详情，方向键切换，双击粘贴，按住拖到其他应用，拖动时按 Esc 取消"
     }
 
     private var textScale: CGFloat {
@@ -135,10 +136,9 @@ struct ClipboardCardView: View {
                         .fixedSize()
                         .accessibilityHidden(true)
                 }
-                Text(ClipboardTimeLabel.compact(entry.createdAt))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .help(entry.createdAt.formatted(date: .complete, time: .standard))
+                if canPin {
+                    Color.clear.frame(width: 22 * textScale, height: 18 * textScale)
+                }
             }
             .font(.system(size: 11 * textScale, weight: .medium))
             .foregroundStyle(.secondary)
@@ -199,24 +199,7 @@ struct ClipboardCardView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            HStack(spacing: 5) {
-                SourceAppIconView(
-                    bundleID: entry.sourceAppBundleID,
-                    name: entry.sourceAppName,
-                    size: 18 * textScale
-                )
-                Text(entry.sourceAppName ?? "未知来源")
-                    .lineLimit(1)
-                if entry.kind == .fileReference && fileHasSavedCopy {
-                    SavedFileCopyBadge(fontSize: 9 * textScale)
-                }
-                Spacer()
-                if entry.sourceAppBundleID != nil || entry.sourceAppName != nil {
-                    Color.clear.frame(width: 18 * textScale, height: 18 * textScale)
-                }
-            }
-            .font(.system(size: 10 * textScale))
-            .foregroundStyle(.tertiary)
+            Color.clear.frame(height: 18 * textScale)
         }
         .padding(14 * textScale)
         .frame(width: cardSize.width, height: cardSize.height)
@@ -246,20 +229,67 @@ struct ClipboardCardView: View {
                 deferSelectionUntilMouseUp: true
             )
         }
-        .overlay(alignment: .bottomTrailing) {
-            if entry.sourceAppBundleID != nil || entry.sourceAppName != nil {
-                Button(action: onOpenSource) {
-                    LucideIcon(.arrowUpLeft, size: 11 * textScale)
-                        .scaleEffect(x: -1, y: 1)
-                        .frame(width: 28 * textScale, height: 28 * textScale)
-                        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 5 * textScale) {
+                SourceAppIconView(
+                    bundleID: entry.sourceAppBundleID,
+                    name: entry.sourceAppName,
+                    size: 18 * textScale
+                )
+                .allowsHitTesting(false)
+                Text(entry.sourceAppName ?? "未知来源")
+                    .lineLimit(1)
+                    .layoutPriority(-1)
+                    .allowsHitTesting(false)
+                if entry.sourceAppBundleID != nil || entry.sourceAppName != nil {
+                    Button(action: onOpenSource) {
+                        LucideIcon(.arrowUpLeft, size: 11 * textScale)
+                            .scaleEffect(x: -1, y: 1)
+                            .frame(width: 28 * textScale, height: 28 * textScale)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("打开来源应用：\(entry.sourceAppName ?? entry.sourceAppBundleID ?? "未知")")
+                    .accessibilityLabel("打开来源应用：\(entry.sourceAppName ?? entry.sourceAppBundleID ?? "未知")")
+                }
+                if entry.kind == .fileReference && fileHasSavedCopy {
+                    SavedFileCopyBadge(fontSize: 9 * textScale)
+                        .allowsHitTesting(false)
+                }
+                Spacer(minLength: 3)
+                Text(ClipboardTimeLabel.compact(entry.createdAt))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .foregroundStyle(.secondary)
+                    .help(entry.createdAt.formatted(date: .complete, time: .standard))
+                    .allowsHitTesting(false)
+            }
+            .font(.system(size: 10 * textScale))
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 14 * textScale)
+            .padding(.bottom, 9 * textScale)
+        }
+        .overlay(alignment: .topTrailing) {
+            if canPin {
+                Button(action: onPin) {
+                    ZStack {
+                        Image(systemName: "macwindow")
+                            .font(.system(size: 19 * textScale, weight: .regular))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: isPinned ? "pin.fill" : "pin")
+                            .font(.system(size: 10 * textScale, weight: .semibold))
+                            .foregroundStyle(isPinned ? Color.accentColor : Color.primary)
+                            .offset(x: 6 * textScale, y: -6 * textScale)
+                    }
+                    .frame(width: 28 * textScale, height: 28 * textScale)
+                    .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8 * textScale))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("打开来源应用：\(entry.sourceAppName ?? entry.sourceAppBundleID ?? "未知")")
-                .accessibilityLabel("打开来源应用：\(entry.sourceAppName ?? entry.sourceAppBundleID ?? "未知")")
-                .padding(.trailing, 4 * textScale)
-                .padding(.bottom, 9 * textScale)
+                .help(isPinned ? "显示已钉住的图片" : "钉在桌面")
+                .accessibilityLabel(isPinned ? "显示已钉住的图片" : "钉在桌面")
+                .padding(7 * textScale)
             }
         }
         .task(id: previewKey) {
@@ -321,8 +351,6 @@ struct ClipboardGroupCardView: View {
                         .foregroundStyle(.tertiary)
                 }
                 Spacer(minLength: 3)
-                Text(ClipboardTimeLabel.compact(entry.createdAt))
-                    .lineLimit(1)
             }
             .font(.system(size: 11 * textScale))
             .foregroundStyle(.secondary)
@@ -375,11 +403,15 @@ struct ClipboardGroupCardView: View {
                 )
                 Text(entry.sourceAppName ?? "未知来源")
                     .lineLimit(1)
-                Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11 * textScale, weight: .semibold))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 Text(isExpanded ? "收起" : "展开")
+                Spacer(minLength: 3)
+                Text(ClipboardTimeLabel.compact(entry.createdAt))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help(entry.createdAt.formatted(date: .complete, time: .standard))
             }
             .font(.system(size: 10 * textScale))
             .foregroundStyle(.secondary)

@@ -50,11 +50,13 @@ final class PinnedImageStore {
     private let manager = FileManager.default
     private let directory: URL
     private let indexURL: URL
+    private let allSpacesMigrationURL: URL
     private(set) var records: [PinnedImageRecord]
 
     init(directory: URL) throws {
         self.directory = directory
         indexURL = directory.appendingPathComponent("pins.json")
+        allSpacesMigrationURL = directory.appendingPathComponent(".all-spaces-default-v1")
         try manager.createDirectory(at: directory, withIntermediateDirectories: true)
         if manager.fileExists(atPath: indexURL.path) {
             guard let data = try? Data(contentsOf: indexURL),
@@ -69,18 +71,35 @@ final class PinnedImageStore {
                   }) else {
                 throw PinnedImageError.unreadableIndex
             }
-            records = decoded
+            if manager.fileExists(atPath: allSpacesMigrationURL.path) {
+                records = decoded
+            } else {
+                // Pins created before full-screen support defaulted to the
+                // current desktop. Upgrade them once so existing pins also
+                // appear over full-screen apps; later user choices persist.
+                let upgraded = decoded.map { record in
+                    var record = record
+                    record.allSpaces = true
+                    return record
+                }
+                if upgraded != decoded {
+                    try JSONEncoder().encode(upgraded).write(to: indexURL, options: .atomic)
+                }
+                try Data("1".utf8).write(to: allSpacesMigrationURL, options: .atomic)
+                records = upgraded
+            }
         } else {
             records = []
+            try Data("1".utf8).write(to: allSpacesMigrationURL, options: .atomic)
         }
     }
 
     var count: Int { records.count }
 
     var storageBytes: Int64 {
-        let urls = (try? manager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.fileSizeKey])) ?? []
-        return urls.reduce(0) { total, url in
-            total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        records.reduce(0) { total, record in
+            guard let url = imageURL(for: record) else { return total }
+            return total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         }
     }
 
@@ -119,7 +138,7 @@ final class PinnedImageStore {
         try bytes.write(to: destination, options: .atomic)
         let record = PinnedImageRecord(
             id: id, sourceEntryID: sourceEntryID, fileName: fileName,
-            title: title, frame: nil, allSpaces: false
+            title: title, frame: nil, allSpaces: true
         )
         do {
             try save(records + [record])

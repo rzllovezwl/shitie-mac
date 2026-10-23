@@ -73,7 +73,9 @@ private final class PinnedImageWindow: NSObject, NSWindowDelegate {
         )
         super.init()
         panel.title = record.title
-        panel.level = .floating
+        // Full-screen windows from other apps sit above ordinary floating
+        // panels. Keep pinned images at the same overlay level as the shelf.
+        panel.level = .screenSaver
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
@@ -85,7 +87,6 @@ private final class PinnedImageWindow: NSObject, NSWindowDelegate {
 
     func show() {
         panel.orderFrontRegardless()
-        panel.makeKeyAndOrderFront(nil)
     }
 
     func dismiss() {
@@ -121,7 +122,8 @@ private final class PinnedImageWindow: NSObject, NSWindowDelegate {
     }
 
     private static func collectionBehavior(allSpaces: Bool) -> NSWindow.CollectionBehavior {
-        allSpaces ? [.canJoinAllSpaces, .fullScreenAuxiliary] : [.fullScreenAuxiliary]
+        let common: NSWindow.CollectionBehavior = [.canJoinAllApplications, .fullScreenAuxiliary]
+        return allSpaces ? common.union([.canJoinAllSpaces, .stationary]) : common
     }
 }
 
