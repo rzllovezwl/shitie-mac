@@ -360,6 +360,7 @@ struct ShelfView: View {
                 }
                 filterMenuItem(.link)
                 filterMenuItem(.image)
+                filterMenuItem(.phoneScreenshot)
                 Menu {
                     filterMenuItem(.files)
                     if filterInventory.count(for: .files) > 0 { Divider() }

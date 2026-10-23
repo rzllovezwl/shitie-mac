@@ -116,12 +116,12 @@ enum ClipboardFileIconKind: Hashable {
 /// One definition drives the menu, result list, and counts. An image file
 /// reference intentionally appears under both Images and Files.
 enum ClipboardFilter: Hashable {
-    case all, plainText, richText, markdown, code, link, image, files
+    case all, plainText, richText, markdown, code, link, image, phoneScreenshot, files
     case codeLanguage(ClipboardTextClassification)
     case fileKind(ClipboardFileIconKind)
 
     static let primary: [Self] = [
-        .all, .plainText, .richText, .markdown, .code, .link, .image, .files
+        .all, .plainText, .richText, .markdown, .code, .link, .image, .phoneScreenshot, .files
     ]
 
     static let codeLanguages: [ClipboardTextClassification] = [
@@ -145,6 +145,7 @@ enum ClipboardFilter: Hashable {
         case .code: "代码"
         case .link: "链接"
         case .image: "图片"
+        case .phoneScreenshot: "iPhone 截图"
         case .files: "文件"
         case .codeLanguage(let language): language.label
         case .fileKind(let kind):
@@ -165,6 +166,7 @@ enum ClipboardFilter: Hashable {
 
     var compactLabel: String {
         switch self {
+        case .phoneScreenshot: "iPhone"
         case .codeLanguage(let language):
             switch language {
             case .javaScript: "JS"
@@ -203,6 +205,7 @@ enum ClipboardFilter: Hashable {
         case .code: entry.kind == .text && entry.textClassification.codeLanguage != nil
         case .link: entry.kind == .link
         case .image: entry.isImagePreviewable || entry.kind == .unavailableImage
+        case .phoneScreenshot: entry.kind == .image && entry.sourceAppName == "iPhone 截图"
         case .files: entry.kind == .fileReference
         case .codeLanguage(let language):
             entry.kind == .text && entry.textClassification == language
@@ -233,7 +236,11 @@ struct ClipboardFilterInventory {
                     matched.insert(.codeLanguage(classification))
                 }
             case .link: matched.insert(.link)
-            case .image, .unavailableImage: matched.insert(.image)
+            case .image, .unavailableImage:
+                matched.insert(.image)
+                if item.kind == .image && item.sourceAppName == "iPhone 截图" {
+                    matched.insert(.phoneScreenshot)
+                }
             case .fileReference:
                 matched.insert(.files)
                 let kind = ClipboardFileIconKind.classify(

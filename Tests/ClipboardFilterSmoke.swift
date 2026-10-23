@@ -41,6 +41,25 @@ struct ClipboardFilterSmoke {
                    1, "分类内搜索文件名")
         try expect(inventory.matching(entries, filter: .plainText, query: "report").count,
                    0, "分类与搜索取交集")
+        var phoneScreenshot = entry(.image, nil)
+        phoneScreenshot.sourceAppName = "iPhone 截图"
+        var otherImage = entry(.image, nil)
+        otherImage.sourceAppName = "微信"
+        var mislabeledText = entry(.text, "ordinary text")
+        mislabeledText.sourceAppName = "iPhone 截图"
+        var phoneGroupMember = entry(.image, nil)
+        phoneGroupMember.sourceAppName = "iPhone 截图"
+        var group = entry(.group, nil)
+        group.groupMemberIDs = [phoneGroupMember.id]
+        group.groupMembers = [phoneGroupMember]
+        let sourceEntries = [phoneScreenshot, otherImage, mislabeledText, group]
+        let sourceInventory = ClipboardFilterInventory(entries: sourceEntries)
+        try expect(sourceInventory.count(for: .phoneScreenshot), 2, "iPhone 截图按根卡片计数")
+        try expect(sourceInventory.count(for: .image), 3, "iPhone 截图仍属于图片")
+        try expect(sourceInventory.matching(sourceEntries, filter: .phoneScreenshot, query: "").count,
+                   2, "iPhone 截图只匹配图片和包含图片的分组")
+        try expect(sourceInventory.matching(sourceEntries, filter: .phoneScreenshot, query: "ordinary").count,
+                   0, "来源名称不能让文字混入截图分类")
         guard link.webURL?.absoluteString == "https://example.com/path?q=1",
               ClipboardEntry.webURL(from: "javascript:alert(1)") == nil,
               ClipboardEntry.webURL(from: "https://") == nil,
