@@ -88,6 +88,7 @@ struct ClipboardCardView: View {
     let onDelete: () -> Void
     let onOpenSource: () -> Void
     let onBeginDrag: () -> ClipboardDragPayload?
+    let onDragStarted: () -> Void
     let onEndDrag: (Bool) -> Void
     @State private var previewResult: TextPreviewResult?
 
@@ -233,6 +234,7 @@ struct ClipboardCardView: View {
                 onCopy: onCopy,
                 onDelete: onDelete,
                 onBeginDrag: onBeginDrag,
+                onDragStarted: onDragStarted,
                 onEndDrag: onEndDrag,
                 dragPreviewURL: entry.kind == .image ? imageURL : thumbnailURL,
                 dragSymbolName: entry.kind == .link ? "link" : "doc.on.clipboard",
@@ -292,6 +294,7 @@ struct ClipboardGroupCardView: View {
     let onCopy: () -> Void
     let onDelete: () -> Void
     let onBeginDrag: () -> ClipboardDragPayload?
+    let onDragStarted: () -> Void
     let onEndDrag: (Bool) -> Void
 
     private var textScale: CGFloat { min(1.25, max(0.9, cardSize.height / 252)) }
@@ -391,7 +394,8 @@ struct ClipboardGroupCardView: View {
             ImmediateCardInteraction(
                 onSelect: onSelect, onPaste: onPaste,
                 onCopy: onCopy, onDelete: onDelete,
-                onBeginDrag: onBeginDrag, onEndDrag: onEndDrag,
+                onBeginDrag: onBeginDrag, onDragStarted: onDragStarted,
+                onEndDrag: onEndDrag,
                 dragSymbolName: "square.stack.3d.up",
                 deferSelectionUntilMouseUp: true
             )
@@ -503,6 +507,7 @@ struct ImmediateCardInteraction: NSViewRepresentable {
     let onCopy: () -> Void
     let onDelete: () -> Void
     var onBeginDrag: (() -> ClipboardDragPayload?)? = nil
+    var onDragStarted: (() -> Void)? = nil
     var onEndDrag: ((Bool) -> Void)? = nil
     var dragPreviewURL: URL? = nil
     var dragSymbolName = "doc.on.clipboard"
@@ -518,6 +523,7 @@ struct ImmediateCardInteraction: NSViewRepresentable {
         view.onCopy = onCopy
         view.onDelete = onDelete
         view.onBeginDrag = onBeginDrag
+        view.onDragStarted = onDragStarted
         view.onEndDrag = onEndDrag
         view.dragPreviewURL = dragPreviewURL
         view.dragSymbolName = dragSymbolName
@@ -532,6 +538,7 @@ final class CardInteractionView: NSView, NSDraggingSource {
     var onCopy: (() -> Void)?
     var onDelete: (() -> Void)?
     var onBeginDrag: (() -> ClipboardDragPayload?)?
+    var onDragStarted: (() -> Void)?
     var onEndDrag: ((Bool) -> Void)?
     var dragPreviewURL: URL?
     var dragSymbolName = "doc.on.clipboard"
@@ -601,6 +608,10 @@ final class CardInteractionView: NSView, NSDraggingSource {
         _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
         .copy
+    }
+
+    func draggingSession(_ session: NSDraggingSession, willBeginAt screenPoint: NSPoint) {
+        onDragStarted?()
     }
 
     func draggingSession(

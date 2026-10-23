@@ -682,6 +682,7 @@ struct ShelfView: View {
                 onCopy: { copySelection(startingAt: entry) },
                 onDelete: { model.confirmDelete(entry) },
                 onBeginDrag: { model.beginDrag(dragSelection(startingAt: entry)) },
+                onDragStarted: { model.dragSessionBegan() },
                 onEndDrag: { model.finishDrag(didDrop: $0) }
             )
             if expanded {
@@ -739,6 +740,7 @@ struct ShelfView: View {
             onDelete: { model.confirmDelete(entry) },
             onOpenSource: { model.openSourceApplication(for: entry) },
             onBeginDrag: { model.beginDrag(dragSelection(startingAt: entry)) },
+            onDragStarted: { model.dragSessionBegan() },
             onEndDrag: { model.finishDrag(didDrop: $0) }
         )
         .background {

@@ -197,6 +197,7 @@ final class PanelController {
     private var appDeactivationObserver: Any?
     private var isDismissing = false
     private var isExternalDragActive = false
+    private var dragCancellationGraceUntil: TimeInterval = 0
     private var activatedForImagePreview = false
     private var imagePreviewActivationToken = UUID()
     private var modalInteractionDepth = 0
@@ -297,7 +298,8 @@ final class PanelController {
                 self.lastExternalApplication = application
                 guard self.panel.isVisible, !self.isDismissing,
                       !self.isModalInteractionActive,
-                      !self.isExternalDragActive else { return }
+                      !self.isExternalDragActive,
+                      ProcessInfo.processInfo.systemUptime >= self.dragCancellationGraceUntil else { return }
                 // A delayed activation notification from the app that owned
                 // the hotkey must not immediately undo the panel opening.
                 let justOpened = ProcessInfo.processInfo.systemUptime - self.shownAtUptime < 0.35
@@ -347,6 +349,9 @@ final class PanelController {
         let showGeneration = presentationGeneration
         isDismissing = false
         isExternalDragActive = false
+        dragCancellationGraceUntil = 0
+        panel.alphaValue = 1
+        panel.ignoresMouseEvents = false
         activatedForImagePreview = false
         modalDismissalGraceUntil = 0
         clearDetailPanel(restoreShelfFocus: false)
@@ -461,18 +466,39 @@ final class PanelController {
     private func dismissForOutsideClick(at location: CGPoint) {
         guard panel.isVisible, !isDismissing, !isModalInteractionActive,
               !isExternalDragActive,
+              ProcessInfo.processInfo.systemUptime >= dragCancellationGraceUntil,
               !panel.frame.contains(location),
               detailPanel.map({ $0.isVisible && $0.frame.contains(location) }) != true else { return }
         hide(restorePreviousApplication: false)
     }
 
     func beginExternalDrag() {
+        guard panel.isVisible, !isDismissing else { return }
         isExternalDragActive = true
+        dragCancellationGraceUntil = 0
+        // Keep the source view alive for AppKit's drag session while uncovering
+        // the destination beneath this high-level panel.
+        panel.alphaValue = 0
+        panel.ignoresMouseEvents = true
+        detailPanel?.alphaValue = 0
+        detailPanel?.ignoresMouseEvents = true
     }
 
     func finishExternalDrag(didDrop: Bool) {
+        guard isExternalDragActive else { return }
         if didDrop {
             hide(restorePreviousApplication: false)
+        } else {
+            // Activation notifications from the target can arrive after the
+            // drag callback. Keep them from closing the restored shelf.
+            dragCancellationGraceUntil = ProcessInfo.processInfo.systemUptime + 0.35
+            panel.alphaValue = 1
+            panel.ignoresMouseEvents = false
+            detailPanel?.alphaValue = 1
+            detailPanel?.ignoresMouseEvents = false
+            let focusPanel = detailPanel.flatMap { $0.isVisible ? $0 : nil } ?? panel
+            focusPanel.makeKeyAndOrderFront(nil)
+            focusPanel.orderFrontRegardless()
         }
         isExternalDragActive = false
     }
@@ -726,6 +752,8 @@ final class PanelController {
         previewImagePixelSize = nil
         previewTextPreferredSize = nil
         detailPanel?.orderOut(nil)
+        detailPanel?.alphaValue = 1
+        detailPanel?.ignoresMouseEvents = false
         detailPanel?.contentView = NSView(frame: .zero)
         previewMotion.progress = 1
         if restoreShelfFocus && panel.isVisible && !isDismissing {
@@ -803,6 +831,8 @@ final class PanelController {
             self.settingsClickMonitor = nil
         }
         guard panel.isVisible else {
+            panel.alphaValue = 1
+            panel.ignoresMouseEvents = false
             if shouldRestore { restorePreviousApplicationIfNeeded() }
             SettingsWindowController.shared.restoreAfterPanelPresentation()
             completion?()
@@ -817,6 +847,8 @@ final class PanelController {
             MainActor.assumeIsolated {
                 guard self?.presentationGeneration == hideGeneration else { return }
                 panel?.orderOut(nil)
+                panel?.alphaValue = 1
+                panel?.ignoresMouseEvents = false
                 if shouldRestore { self?.restorePreviousApplicationIfNeeded() }
                 SettingsWindowController.shared.restoreAfterPanelPresentation()
                 self?.tracePanel("after hide")

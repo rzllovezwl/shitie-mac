@@ -472,8 +472,11 @@ final class AppController: ObservableObject {
                 : "内容文件不可用，无法拖到其他应用。"
             return nil
         }
-        panel.beginExternalDrag()
         return payload
+    }
+
+    func dragSessionBegan() {
+        panel.beginExternalDrag()
     }
 
     func finishDrag(didDrop: Bool) {
