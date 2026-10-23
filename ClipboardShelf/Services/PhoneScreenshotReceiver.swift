@@ -275,7 +275,7 @@ private final class PhoneScreenshotConnection {
         <h1>iPhone 截图直达 ClipHoook</h1><p>这台 Mac 已开启接收。请让 iPhone 和 Mac 保持在同一可信局域网。</p>
         <section><strong>1. 添加 iCloud 模板</strong><p>点下方按钮，在“快捷指令”中添加“Cliphoook截图直达”。打开刚添加的副本，顶部应显示“当我将截屏保存到照片时”。模板只含地址占位文字，不含任何人的接收地址。</p><a class="button" href="\(PhoneScreenshotReceiver.templateAddress)" rel="noreferrer">打开 iCloud 模板</a></section>
         <section><strong>2. 填入这台 Mac 的接收地址</strong><p>点击下方按钮复制接收地址，编辑刚添加的模板，把“URL”操作里的中文地址占位文字完整替换为它。<strong>不要复制浏览器地址栏里的安装页网址</strong>：接收地址必须包含 /v1/screenshot/，而安装页网址包含 /v1/setup/。</p><input id="address" readonly value="\(address)"><button onclick="copyAddress()">复制接收地址（用于上传）</button><small id="copyHint">如果复制按钮无效，可长按上方地址并复制。请勿把地址分享给他人。</small></section>
-        <section><strong>3. 开启自动化</strong><p>导入后若顶部显示“自动化已关闭”，轻点它，开启这条截屏自动化，并设为“立即运行”或关闭“运行前询问”。这是 iPhone 上需要确认的一次性设置；仅有触发条件还不会自动上传。</p></section>
+        <section><strong>3. 开启自动化</strong><p>不同 iOS 版本入口可能不同：轻点顶部“自动化已关闭”，或点触发条件旁的向右箭头进入设置。开启截屏自动化并选“立即运行”（旧版可关闭“运行前询问”）。这是 iPhone 上需要确认的一次性设置；仅有触发条件还不会自动上传。</p></section>
         <section><strong>4. 保存新截图验证</strong><p>保持 Mac 运行，iPhone 和 Mac 接入同一可信局域网；保存一张新截图到“照片”，检查 Mac 上是否出现“iPhone 截图”卡片并听到提示音。</p></section>
         <p><small>若顶部没有截屏触发条件，请确认添加的是本页的 iCloud 模板，不要使用之前下载的 .shortcut 文件。已添加旧副本可删除，避免重复触发。</small></p>
         <p><small>离开这台 Mac 所在的 Wi-Fi 时，上传可能超时。可在模板的“获取 URL 内容”前按 Wi-Fi 名称添加“如果”判断，只在指定网络发送。Mac 休眠或离线时也无法接收。</small></p>

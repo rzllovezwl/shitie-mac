@@ -278,11 +278,10 @@ private struct PhoneScreenshotGuideView: View {
                             VStack(alignment: .leading, spacing: 9) {
                                 Text("用 iPhone 扫码添加模板")
                                     .font(.headline)
-                                Text("二维码直接打开 iCloud 模板。添加模板不要求同一 Wi-Fi；发送截图时手机与 Mac 需在同一可信局域网。")
+                                Text("添加后，点上方“复制接收地址”，把地址完整填入模板的“URL”操作，替换示例文字。")
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
-                                Text("模板链接不包含这台 Mac 的私密接收地址。")
+                                Text("扫码添加无需同一 Wi-Fi；截图直传需同一可信局域网。模板链接不含私密地址。")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -301,7 +300,7 @@ private struct PhoneScreenshotGuideView: View {
                         guideStep(2, "替换模板里的示例地址",
                                   "在这台 Mac 上点“复制接收地址”，再到 iPhone 模板的“URL”操作中粘贴，完整替换中文占位文字。跨设备粘贴不可用时，可用可信方式把地址传到手机。接收地址应包含 /v1/screenshot/。")
                         guideStep(3, "开启自动化并设为立即运行",
-                                  "导入后如果顶部显示“自动化已关闭”，轻点该提示，开启截屏自动化并选“立即运行”（或关闭“运行前询问”）。共享模板无法代替你在 iPhone 上完成这次开启。")
+                                  "不同 iOS 版本入口可能不同：轻点顶部“自动化已关闭”，或点触发条件旁的向右箭头进入设置。开启截屏自动化并选“立即运行”（旧版可关闭“运行前询问”）。共享模板无法代替你完成开启。")
                         guideStep(4, "保存一张新截图验证",
                                   "让 Mac 保持运行且不休眠，两台设备接入同一可信局域网。保存截图到“照片”后，历史里应出现“iPhone 截图”卡片，并按声音设置播放提示音。")
                     }
