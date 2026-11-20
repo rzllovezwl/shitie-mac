@@ -19,9 +19,9 @@
 | 下载方式 | 适合谁 | 入口 |
 | --- | --- | --- |
 | App Store 正式版 · 1.1.0 | 希望通过商店安装和更新 | [在 Mac App Store 中获取](https://apps.apple.com/cn/app/id6823468334) |
-| GitHub 下载版 | 想体验当前开发功能 | [查看 Releases](https://github.com/rzllovezwl/shitie-mac/releases) |
+| GitHub 开发预览版 · 349 | 想体验当前开发功能，Apple 芯片与 Intel 通用 | [下载应用 ZIP](https://github.com/rzllovezwl/shitie-mac/releases/download/v1.0.0-dev.349/ClipHoook-dev-349-universal.zip) · [更新说明](https://github.com/rzllovezwl/shitie-mac/releases/tag/v1.0.0-dev.349) |
 
-GitHub 下载版正在准备站外分发签名与公证，当前发布页尚无安装附件。完成后会提供 Apple 芯片与 Intel 通用安装包。App Store 与 GitHub 版本的功能和版本号可能不同，请查看各自的更新记录。[下载与分发说明](docs/Downloads.md)
+GitHub 下载版已使用 Developer ID 签名并通过 Apple 公证。下载后双击解压，将「ClipHoook测试版.app」拖入“应用程序”后打开，支持 macOS 14 及以上。[发布页](https://github.com/rzllovezwl/shitie-mac/releases/tag/v1.0.0-dev.349)同时提供校验值与安装说明。App Store 与 GitHub 版本的功能和版本号可能不同，请查看各自的更新记录。[下载与分发说明](docs/Downloads.md)
 
 ## 功能一览
 
@@ -171,4 +171,4 @@ Debug / Release 使用开发身份，自动粘贴需系统键盘事件授权。�
 | [支持与常见问题](distribution/web/support.md) | 面向用户的操作帮助 |
 | [Git 分支约定](docs/Git.md) / [上架说明](docs/AppStore.md) / [商店资料](distribution/metadata/zh-Hans/README.md) | 开发、版本记录、已保留候选与审核资料 |
 
-开发分支 develop 用于日常迭代，main 保留发布基线。配图使用隔离演示数据生成，方法见 [首页配图说明](docs/images/README.md)。源码、资源、验证工具与说明随 GitHub 同步，构建产物、证书、配置文件和个人剪贴板数据保留在本机。
+开发分支 develop 用于日常迭代，main 保留发布基线。配图使用隔离演示数据生成，方法见 [首页配图说明](docs/images/README.md)。源码、资源、验证工具与说明随 GitHub 同步，已签名并公证的安装包通过 Releases 分发。其余构建归档、证书私钥、签名配置和个人剪贴板数据保留在本机。
