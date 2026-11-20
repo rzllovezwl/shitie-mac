@@ -21,12 +21,22 @@ struct PinnedWindowFrame: Codable, Equatable {
 }
 
 struct PinnedImageRecord: Codable, Identifiable, Equatable {
+    static let minimumOpacity = 0.1
+    static let shadowInset: CGFloat = 24
+
     let id: UUID
     let sourceEntryID: UUID
     let fileName: String
     let title: String
     var frame: PinnedWindowFrame?
     var allSpaces: Bool
+    /// Nil in records saved before opacity became adjustable.
+    var opacity: Double? = nil
+
+    var displayOpacity: Double {
+        guard let opacity, opacity.isFinite else { return 1 }
+        return min(1, max(Self.minimumOpacity, opacity))
+    }
 }
 
 enum PinnedImageError: LocalizedError {
@@ -113,7 +123,8 @@ final class PinnedImageStore {
     }
 
     @discardableResult
-    func add(sourceEntryID: UUID, sourceURL: URL, title: String) throws -> PinnedImageRecord {
+    func add(sourceEntryID: UUID, sourceURL: URL, title: String,
+             initialContentFrame: NSRect? = nil) throws -> PinnedImageRecord {
         if let existing = record(for: sourceEntryID) {
             guard imageURL(for: existing) != nil else { throw PinnedImageError.missingSnapshot }
             return existing
@@ -138,7 +149,12 @@ final class PinnedImageStore {
         try bytes.write(to: destination, options: .atomic)
         let record = PinnedImageRecord(
             id: id, sourceEntryID: sourceEntryID, fileName: fileName,
-            title: title, frame: nil, allSpaces: true
+            title: title,
+            frame: initialContentFrame.map {
+                PinnedWindowFrame($0.insetBy(dx: -PinnedImageRecord.shadowInset,
+                                              dy: -PinnedImageRecord.shadowInset))
+            },
+            allSpaces: true
         )
         do {
             try save(records + [record])
@@ -158,10 +174,30 @@ final class PinnedImageStore {
         records = updated
     }
 
+    func updateOpacity(_ opacity: Double, for id: UUID) throws {
+        guard opacity.isFinite,
+              let index = records.firstIndex(where: { $0.id == id }) else { return }
+        var updated = records
+        updated[index].opacity = min(1, max(PinnedImageRecord.minimumOpacity, opacity))
+        try save(updated)
+        records = updated
+    }
+
     func setAllSpaces(_ enabled: Bool, for id: UUID) throws {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return }
         var updated = records
         updated[index].allSpaces = enabled
+        try save(updated)
+        records = updated
+    }
+
+    /// The index is also the back-to-front order of pinned windows. A click
+    /// commits the chosen image to the front; hovering never changes this list.
+    func bringToFront(_ id: UUID) throws {
+        guard let index = records.firstIndex(where: { $0.id == id }),
+              index != records.count - 1 else { return }
+        var updated = records
+        updated.append(updated.remove(at: index))
         try save(updated)
         records = updated
     }

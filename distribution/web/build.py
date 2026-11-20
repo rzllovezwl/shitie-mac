@@ -88,7 +88,7 @@ def build(source_file: Path, output_file: Path, description: str) -> None:
 
 if __name__ == "__main__":
     build(
-        ROOT / "ClipboardShelf" / "Resources" / "PrivacyPolicy.md",
+        ROOT / "distribution" / "metadata" / "zh-Hans" / "privacy-policy-build5.md",
         WEB / "privacy" / "index.html",
         "ClipHoook Mac 剪贴板工具的隐私政策：本机历史记录、数据保存与删除方式。",
     )

@@ -4,19 +4,25 @@ import SwiftUI
 struct TextPreviewView: NSViewRepresentable {
     let content: NSAttributedString
     let interactive: Bool
+    let onTextSelectionChange: (String) -> Void
     let onSelectionChange: (String) -> Void
 
     init(
         content: NSAttributedString,
         interactive: Bool = true,
+        onTextSelectionChange: @escaping (String) -> Void = { _ in },
         onSelectionChange: @escaping (String) -> Void = { _ in }
     ) {
         self.content = content
         self.interactive = interactive
+        self.onTextSelectionChange = onTextSelectionChange
         self.onSelectionChange = onSelectionChange
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator(onSelectionChange: onSelectionChange) }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onTextSelectionChange: onTextSelectionChange,
+                    onSelectionChange: onSelectionChange)
+    }
 
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
@@ -45,6 +51,7 @@ struct TextPreviewView: NSViewRepresentable {
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        context.coordinator.onTextSelectionChange = onTextSelectionChange
         context.coordinator.onSelectionChange = onSelectionChange
         guard let textView = context.coordinator.textView,
               context.coordinator.lastContent !== content else { return }
@@ -56,11 +63,14 @@ struct TextPreviewView: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
+        var onTextSelectionChange: (String) -> Void
         var onSelectionChange: (String) -> Void
         weak var textView: NSTextView?
         var lastContent: NSAttributedString?
 
-        init(onSelectionChange: @escaping (String) -> Void) {
+        init(onTextSelectionChange: @escaping (String) -> Void,
+             onSelectionChange: @escaping (String) -> Void) {
+            self.onTextSelectionChange = onTextSelectionChange
             self.onSelectionChange = onSelectionChange
         }
 
@@ -72,13 +82,23 @@ struct TextPreviewView: NSViewRepresentable {
 
         func reportSelection() {
             guard let textView, let content = textView.textStorage, content.length > 0 else {
-                DispatchQueue.main.async { self.onSelectionChange("无文字格式信息") }
+                DispatchQueue.main.async {
+                    self.onTextSelectionChange("")
+                    self.onSelectionChange("无文字格式信息")
+                }
                 return
             }
-            let index = min(textView.selectedRange().location, content.length - 1)
+            let range = textView.selectedRange()
+            let selectedText = range.location != NSNotFound && range.length > 0 &&
+                NSMaxRange(range) <= content.length
+                ? (content.string as NSString).substring(with: range) : ""
+            let index = min(range.location, content.length - 1)
             let attributes = content.attributes(at: index, effectiveRange: nil)
             let info = Self.describe(attributes)
-            DispatchQueue.main.async { self.onSelectionChange(info) }
+            DispatchQueue.main.async {
+                self.onTextSelectionChange(selectedText)
+                self.onSelectionChange(info)
+            }
         }
 
         static func describe(_ attributes: [NSAttributedString.Key: Any]) -> String {

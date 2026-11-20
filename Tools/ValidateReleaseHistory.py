@@ -25,6 +25,7 @@ def validate(info_path: Path, history_path: Path) -> str:
         raise ValueError("ReleaseHistory.json 至少需要一条版本记录")
 
     seen = set()
+    seen_changes = {}
     for index, release in enumerate(releases, start=1):
         if not isinstance(release, dict):
             raise ValueError(f"第 {index} 条版本记录不是对象")
@@ -46,6 +47,15 @@ def validate(info_path: Path, history_path: Path) -> str:
             isinstance(change, str) and change.strip() for change in changes
         ):
             raise ValueError(f"版本 {key[0]}（{key[1]}）需要非空的更新说明")
+        normalized_changes = tuple(sorted(" ".join(change.split()) for change in changes))
+        if len(set(normalized_changes)) != len(normalized_changes):
+            raise ValueError(f"版本 {key[0]}（{key[1]}）有重复的更新条目")
+        if normalized_changes in seen_changes:
+            previous_version, previous_build = seen_changes[normalized_changes]
+            raise ValueError(
+                f"版本 {key[0]}（{key[1]}）与 {previous_version}（{previous_build}）的更新说明完全相同"
+            )
+        seen_changes[normalized_changes] = key
 
     if (releases[0]["version"], releases[0]["build"]) != (version, build):
         raise ValueError(

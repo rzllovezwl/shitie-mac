@@ -53,3 +53,20 @@ struct HistoryStoragePolicy {
         retention.cutoff(before: date, calendar: calendar)
     }
 }
+
+enum HistoryStorageReminder {
+    static let lastNotifiedLevelKey = "historyStorageLastNotifiedLevelV1"
+    private static let megabyte: Int64 = 1_024 * 1_024
+    private static let thresholds: [Int64] = [500, 1_024, 5_120, 10_240]
+        .map { $0 * megabyte }
+
+    static func nextLevel(actualBytes: Int64, maximumBytes: Int?, lastNotifiedLevel: Int) -> Int? {
+        guard maximumBytes == nil else { return nil }
+        let reached = thresholds.lastIndex(where: { actualBytes >= $0 }).map { $0 + 1 } ?? 0
+        return reached > lastNotifiedLevel ? reached : nil
+    }
+
+    static func shouldExplainUncappedGrowth(actualBytes: Int64, maximumBytes: Int?) -> Bool {
+        maximumBytes == nil && actualBytes >= thresholds[0]
+    }
+}

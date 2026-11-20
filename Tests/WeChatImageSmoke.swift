@@ -87,7 +87,7 @@ struct WeChatImageSmoke {
             maximumRichTextBytes: 1_000_000
         )
         try check(mixed.count == 2, "微信图片和文字没有同时被记录")
-        if case .image(let imageData, _) = mixed[0],
+        if case .image(let imageData, _, _) = mixed[0],
            case .text("我这个好玩") = mixed[1] {
             try check(imageData == jpeg, "图文复制改变了图片数据")
         } else {
@@ -115,7 +115,7 @@ struct WeChatImageSmoke {
             maximumRichTextBytes: 1_000_000
         )
         try check(combined.count == 2, "同一剪贴板项目的图片和文字没有拆成两个组内项目")
-        if case .image(let imageData, _) = combined[0],
+        if case .image(let imageData, _, _) = combined[0],
            case .text("我这个好玩") = combined[1] {
             try check(imageData == jpeg, "仅有临时文件地址的图文复制丢失图片")
         } else {
@@ -291,7 +291,7 @@ struct WeChatImageSmoke {
             maximumRichTextBytes: 1_000_000
         )
         try check(delayedCapture.count == 1, "延迟写入后仍无法保存同一次微信复制")
-        if case .image(let delayedBytes, _) = delayedCapture[0] {
+        if case .image(let delayedBytes, _, _) = delayedCapture[0] {
             try check(delayedBytes == jpeg, "延迟写入的图片内容变化")
         } else {
             throw WeChatImageTestError.failed("延迟写入的微信图片类型错误")
@@ -427,7 +427,7 @@ struct WeChatImageSmoke {
         try check(authorizedCapture.count == 3,
                   "获得访问权限后没有保存微信图文批次")
         if case .text("先复制的文字") = authorizedCapture[0],
-           case .image(let authorizedBytes, _) = authorizedCapture[1],
+           case .image(let authorizedBytes, _, _) = authorizedCapture[1],
            case .image = authorizedCapture[2] {
             try check(authorizedBytes == jpeg, "重试后图片内容变化")
         } else {

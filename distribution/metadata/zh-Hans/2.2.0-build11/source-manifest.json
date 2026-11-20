@@ -1,0 +1,264 @@
+{
+  "version": "2.2.0",
+  "build": "11",
+  "sourceBuild": "322",
+  "baseline": "/private/tmp/cliphoook-recording-dev323-before",
+  "sourceSnapshot": "/Users/renzhenglin/Documents/ChatGPT/截屏/build/ClipHoook-store-2.2.0-build11-source",
+  "swiftSources": [
+    {
+      "path": "ClipboardShelf/App/AppController.swift",
+      "sha256": "eac0d9c136085fbee78b55eae97804bb7fcc80f32b03f8bbeaec0010ead9be07"
+    },
+    {
+      "path": "ClipboardShelf/App/ClipboardShelfApp.swift",
+      "sha256": "958c5491b07a2bece00cc03212c9643cc202677ee7c5c36956bb382cff31bd06"
+    },
+    {
+      "path": "ClipboardShelf/Model/AppShortcut.swift",
+      "sha256": "f71aeed3dbda9cd49c46095cc2a8a886185c0cf7e55764ca5e3de72996a44ee4"
+    },
+    {
+      "path": "ClipboardShelf/Model/ClipboardEntry.swift",
+      "sha256": "0f244b4662f6c1f617b526e8268685706662f1b9b260213d591d7c814b7564ad"
+    },
+    {
+      "path": "ClipboardShelf/Model/ClipboardQuickSearch.swift",
+      "sha256": "e508fc8a9d238f0a2c8c72c35fbf930da3bf9b40ae699aa2c0d81424a60696a1"
+    },
+    {
+      "path": "ClipboardShelf/Model/ClipboardTextClassification.swift",
+      "sha256": "9e7ac8ab620c3d6824dbcfebf9ef927ecce17881f6f3984d17f35c2311782f2d"
+    },
+    {
+      "path": "ClipboardShelf/Model/HistoryStoragePolicy.swift",
+      "sha256": "3e5b20fcf5ffbd7cb87859beacddb420028c720a14891e9d2d4517f326a78aed"
+    },
+    {
+      "path": "ClipboardShelf/Model/RecordingExclusionPolicy.swift",
+      "sha256": "08645cef2b6aec3b56b84775a0e5580b333296885ef4e36f0e367d264054bcaf"
+    },
+    {
+      "path": "ClipboardShelf/Model/ReleaseHistory.swift",
+      "sha256": "1792033fbd56c722bce9f8cc6f2a3d95e7efb9c02615507bdaac4e4761f5b43f"
+    },
+    {
+      "path": "ClipboardShelf/Model/StagingShelfItem.swift",
+      "sha256": "e3086fc9a581cdca4f758c7a484f1c5a61f999206ab908d99311f917bfbcef2c"
+    },
+    {
+      "path": "ClipboardShelf/Panel/PanelController.swift",
+      "sha256": "3d20d7b6473b04997454a3c56e800ab10503541ef7c0e297139eea6579deeed3"
+    },
+    {
+      "path": "ClipboardShelf/Panel/PanelLayout.swift",
+      "sha256": "28331dd831ff6ba91f8169fa249ffcde4d67ce819206257355139394c548721a"
+    },
+    {
+      "path": "ClipboardShelf/Panel/PinnedImageWindowManager.swift",
+      "sha256": "6974b6b8d3ab607f6a59844da18d4c9d299199bccdc200b3460c00a9a54fff80"
+    },
+    {
+      "path": "ClipboardShelf/Panel/QuickSearchController.swift",
+      "sha256": "791bd65e676b4dbf6b349c9a1ae5a4e54e431ccf6f2b9439d91bc13e39c8866e"
+    },
+    {
+      "path": "ClipboardShelf/Panel/StagingShelfController.swift",
+      "sha256": "a9099e812bd4b9f5dbed87d86e8e3174aa5b212c65f7d465d96ab26b1210acfc"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardBatchCapture.swift",
+      "sha256": "c3e8bf2d7ddb1b53a1ee8d7db845b82a41336e547995a4c6b5991f4c31fb5777"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardChangeTracker.swift",
+      "sha256": "0a7bc7418039c4bc61c7604a7a57affb79f30e66a0a657d3ac7084164aaf45fd"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardContentTools.swift",
+      "sha256": "2f1054f27f574952f70bf920c7c40ed94607d3764c9968f0331118875e72f925"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardHistoryDatabase.swift",
+      "sha256": "8dedd727094e1d784d24395654d3372652553b73517dd2e3debfb675072e63b4"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardHistoryStore.swift",
+      "sha256": "2208c8319b77ee5102b6ed5b842912f2078d42fbae86eecf6cf0a8e3bb7641f4"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardImageCapture.swift",
+      "sha256": "350340d420e42e104ab7793b521e15e26d7436aa6f93f925ac0abfcc91833e7b"
+    },
+    {
+      "path": "ClipboardShelf/Services/ClipboardPasteboardWriter.swift",
+      "sha256": "c620cdc62e365961eea9780e9293ae01cca82d1c34e577746059671a96d1e225"
+    },
+    {
+      "path": "ClipboardShelf/Services/CopySoundPlayer.swift",
+      "sha256": "5fb9976968681e14c68ebbb0afafab506fce609dda1926f9407f6e97a525c690"
+    },
+    {
+      "path": "ClipboardShelf/Services/GlobalHotKey.swift",
+      "sha256": "607b2a345e590ab2bfecc17eb9869689bcab887b3cee6bfefbfbfdf13a158845"
+    },
+    {
+      "path": "ClipboardShelf/Services/LongScreenshotStitcher.swift",
+      "sha256": "9b5c6b03320f97b19b9424c9c6d3b9bcc1f1a97484f0d97c317a4a72cdcf371d"
+    },
+    {
+      "path": "ClipboardShelf/Services/MacLongScreenshotController.swift",
+      "sha256": "42da571379d936577c715b656543ff8ea4fe26b81fe01e80f53ce5d077618a97"
+    },
+    {
+      "path": "ClipboardShelf/Services/MacScreenshotAnnotations.swift",
+      "sha256": "59ba953469e358ad840f28910facb0d5548b38c727e5f229e779aad03f1a2b3f"
+    },
+    {
+      "path": "ClipboardShelf/Services/MacScreenshotCapture.swift",
+      "sha256": "f29e82a5800e074291f290e6d96242a959fd3420e56573b9d0f70be0674fd9f3"
+    },
+    {
+      "path": "ClipboardShelf/Services/PasteService.swift",
+      "sha256": "bc2497a8817e4a34d3fbe17804753cc37f58ba13b63968f3db48fdcbba61484e"
+    },
+    {
+      "path": "ClipboardShelf/Services/PasteTargetFocus.swift",
+      "sha256": "adc0a70ceb9b60ddcbcac9fd4f624416a1e6202fb2a4c8660f48ffeacfd8213a"
+    },
+    {
+      "path": "ClipboardShelf/Services/PhoneScreenshotHTTPParser.swift",
+      "sha256": "371c9731037c4cff778ee9604a5b7ff6cff00ecfc1fb66fddc1892fea3cd922f"
+    },
+    {
+      "path": "ClipboardShelf/Services/PhoneScreenshotReceiver.swift",
+      "sha256": "406431c094e27f0c90bfdac01174923fe258a2a4a26c306bb7be11e27443fe0a"
+    },
+    {
+      "path": "ClipboardShelf/Services/PinnedImageStore.swift",
+      "sha256": "359599c4ece2df10bc5874527966068c88ff746f1f2e60ec684ac2f9878e590c"
+    },
+    {
+      "path": "ClipboardShelf/Services/StagingShelfStore.swift",
+      "sha256": "d17131dd7d4936b5cee983279bff4650d13eb5e758793fe83de534fc008f6738"
+    },
+    {
+      "path": "ClipboardShelf/Services/TextPreviewRenderer.swift",
+      "sha256": "a44f4469947e6c36a00d4604373d50341066d120ccbb697f7b82320c7895d282"
+    },
+    {
+      "path": "ClipboardShelf/Settings/PrivacyPolicyView.swift",
+      "sha256": "9380d337147ba173ddc2d72372760f222044b18a9fc05b91ec181a5346c3c0a4"
+    },
+    {
+      "path": "ClipboardShelf/Settings/ReleaseHistoryView.swift",
+      "sha256": "947627e4eb74ad88f9817ddb6d7b4efd388c1aa0989f1779c239079f5142c18f"
+    },
+    {
+      "path": "ClipboardShelf/Settings/SettingsView.swift",
+      "sha256": "018df547f5d3903955e312dcd60b8a11f1ee2d7b9bc5b5b321b8201f4afb2281"
+    },
+    {
+      "path": "ClipboardShelf/Settings/SettingsWindowController.swift",
+      "sha256": "be6775ece74d7d8ac2f2a81ea0b2d9da5ade05f27354ab81ce69f3b858d05468"
+    },
+    {
+      "path": "ClipboardShelf/Settings/ShortcutKeyCapture.swift",
+      "sha256": "e77596cbe844def5ad2363a03e27860a8d8744791b921cea6d3ec59d1e81343c"
+    },
+    {
+      "path": "ClipboardShelf/Views/ClipboardCardView.swift",
+      "sha256": "893824b6be304b8dcc8d88d3eab83d516ad6324c44189caf3c84d95972466a31"
+    },
+    {
+      "path": "ClipboardShelf/Views/ClipboardContentToolsView.swift",
+      "sha256": "d53f36824919fd8ba5beb25935957a9a90b162df1217177f7d33ade594bca411"
+    },
+    {
+      "path": "ClipboardShelf/Views/ClipboardDetailView.swift",
+      "sha256": "5c7be2e5e005bcb895364d8e698533c8d7a239dfac7a3274006401f7c28db159"
+    },
+    {
+      "path": "ClipboardShelf/Views/ClipboardImageThumbnailView.swift",
+      "sha256": "1301cf87483025886ef76b7fdb339e13cb115677fe6c265c30b01d027140ae8b"
+    },
+    {
+      "path": "ClipboardShelf/Views/FileReferencePreview.swift",
+      "sha256": "00ea95c4fe17d1559f8b67042013d8c674c78a1976d68f0545637822fd61414b"
+    },
+    {
+      "path": "ClipboardShelf/Views/LucideIcon.swift",
+      "sha256": "c34ac18996fe686c27376b48a1da5d3b93bfc2641f1758eb45e939601c3a9de2"
+    },
+    {
+      "path": "ClipboardShelf/Views/MenuBarContent.swift",
+      "sha256": "b598e98c45d0cbf1a925bf1368f011476e538b6f03b658941f54ffc9890b2e91"
+    },
+    {
+      "path": "ClipboardShelf/Views/PanelHeightOption.swift",
+      "sha256": "5159841cc0ae7137937338da84ae95b6c5f1761f044ea327e32590bde246cd0b"
+    },
+    {
+      "path": "ClipboardShelf/Views/QuickSearchView.swift",
+      "sha256": "89cf470784f643cd3aa5471b7311b9fe3bb370e8fd20d4eb689627df123ca07a"
+    },
+    {
+      "path": "ClipboardShelf/Views/ScanLoadingView.swift",
+      "sha256": "21e85cd3c751d76676d9dddfaa7f957ecd0855ced500ac4f94def22caa3dd1ad"
+    },
+    {
+      "path": "ClipboardShelf/Views/ShelfKeyboard.swift",
+      "sha256": "8b75dba3a50d987b0a908d73e40bbcb02c0e94ddc28855043b2c36196abe1b9f"
+    },
+    {
+      "path": "ClipboardShelf/Views/ShelfView.swift",
+      "sha256": "ad05b4112fc587a10d73eb948da9f4228b356c82836c92566cee4c2469be2907"
+    },
+    {
+      "path": "ClipboardShelf/Views/SourceAppIconView.swift",
+      "sha256": "326c2f06a90de28023e7e7ac6e3e26eaecb1ff179df08dc8e7222a5fdf90be90"
+    },
+    {
+      "path": "ClipboardShelf/Views/TextPreviewView.swift",
+      "sha256": "fc94e75af60962194cd3b11a49a077a4fb7aebbd32f1f1f92b3664610a24abe3"
+    },
+    {
+      "path": "ClipboardShelf/Views/ZoomableImageView.swift",
+      "sha256": "61b97011f5be3bb628cfadaa6719e200d7bd7a4ef33306b5ff1b75e857e23a88"
+    }
+  ],
+  "excludedNewFiles": [
+    "Development.entitlements",
+    "ScreenRecordingController.swift",
+    "ScreenRecordingState.swift",
+    "ScreenRecordingViews.swift",
+    "ScreenRecordingWriter.swift"
+  ],
+  "createdAt": "2026-11-14",
+  "historyRecords": 327,
+  "releaseMetadata": [
+    {
+      "path": "ClipboardShelf/Info.plist",
+      "sha256": "7d7e772880a2a73352b95cb61a42f966dcb1079ae6540eaeb214a05fb3594844"
+    },
+    {
+      "path": "ClipboardShelf/Resources/PrivacyPolicy.md",
+      "sha256": "3f92ac1be787e61169afc080780a8688a71ecd87730588a7cab805a923b1781c"
+    },
+    {
+      "path": "ClipboardShelf/Resources/ReleaseHistory.json",
+      "sha256": "a5157ff979c077dfa13d7b36c3db6ac03734ee3bce6a0bc17b06834d04b1ba7c"
+    },
+    {
+      "path": "ClipboardShelf/Entitlements/AppStore.entitlements",
+      "sha256": "899b74ea245a9a07868dedc3e6a98888bb801e7be1ac3635b7ff5aeca0a207bc"
+    },
+    {
+      "path": "project.yml",
+      "sha256": "0437083c99d8ea904508a4ceaf6d7b40e04c2d98151f60a575c99e060a38c0f2"
+    }
+  ],
+  "generatedProjectSHA256": "0f7e265a2d4f72b4b55007120839f5868c0be5e7c85604d18f4fc8c4598889d2",
+  "assetTreeSHA256": "f6c5800a874801336bc5966fa58efb4ee3e26d97b88d2f4407c7f42052e98032",
+  "assetsSource": "Shared assets copied from the working tree; recording build 323 added no asset files.",
+  "regressionHarness": "322 test cases unchanged; temporary runner replaces project_root and dev bundle ID guard to run against the actual AppStore archive."
+}

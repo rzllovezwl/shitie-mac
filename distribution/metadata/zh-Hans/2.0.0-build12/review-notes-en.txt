@@ -1,0 +1,16 @@
+ClipHoook 2.0.0 (build 12) is a sandboxed macOS menu-bar utility for clipboard history, screenshots, and screen recording. You can test the features below without an account. Minimum system version is macOS 14.0.
+
+Guideline 2.4.5
+This build removes cross-app automatic paste, synthetic keyboard-event posting, and Accessibility queries for the focused UI element of another app. The related permission prompt and settings link have been removed. To verify the change, leave Accessibility access off for ClipHoook, copy a short line in TextEdit, and open the clipboard panel with Command-Shift-V or the menu-bar icon. Double-click the history card. This copies the item to the system clipboard and dismisses the panel. ClipHoook returns to the previous app when available. Press Command-V yourself to paste. Return in the panel or in Quick Search also copies the selection for manual paste. The card context menu offers Copy and Copy Plain Text for supported items.
+
+Clipboard and staging
+Copy text and an image in another app to populate history. Press Command-Shift-Space to open Quick Search. It shows up to 10 recent items with an empty query. Type to search and press Command-Return to preview. Use the plus button in the history tab bar to create a collection, or drag to an existing collection to add the card. Drag a local file towards the side staging shelf to store it, then drag it to a destination that accepts files. Space previews a selected staging item. The menu-bar Staging Shelf item opens it manually.
+
+Screenshots and annotation
+Press Option-A, drag a region or click a window, and use the annotation toolbar to mark or copy the result. Option-W captures the display and Command-Shift-D opens manual scrolling capture. Command-E on an image card opens annotation and cropping. Command-E on an editable text card opens the text editor.
+
+Screen recording
+Press Option-R, select a region, window, or display, then click Start. Press Option-Shift-R to pause or resume. Press Option-R again or click Stop to open the recording preview. Use Trim Duration to select the retained interval and Save to choose the MP4 destination. A completed recording appears in history after the save is confirmed. Closing the preview retains a local draft that can be reopened from the menu bar.
+
+Permissions and storage
+macOS screen capture permission is used for screenshots and screen recording. System audio can be disabled before recording. The microphone is off by default and is requested only when microphone recording is enabled. Recording drafts and content history stay on the Mac. Exported videos are saved to the user-selected destination. The optional iPhone screenshot receiver is off by default and accepts user-configured Shortcuts uploads from the same local network through a paired address. The bundled privacy policy is available in Settings.

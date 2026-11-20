@@ -1,0 +1,57 @@
+{
+  "version": "2.1.0",
+  "build": "10",
+  "locale": "zh-Hans",
+  "fields": {
+    "name": "ClipHoook-剪贴板增强工具",
+    "subtitle": "截图标注、文字识别与分类收藏",
+    "promotional-text": "复制过的内容，按自己的习惯整理。创建带 Emoji 的收藏分类，把常用卡片钉在面板前端，按日期或图片中的文字找回内容。截图、长图、标注、翻译与桌面贴图，也在同一处完成。",
+    "keywords": "长截图,图片转文字,桌面贴图,历史搜索,分类收藏,文本编辑,链接清理,OCR",
+    "description": "ClipHoook 是常驻菜单栏的剪贴板与截图工具。复制过的文字、链接、图片和文件，可以在历史面板中查找、整理并再次使用。默认按 ⌘⇧V 打开面板，历史保存在你的 Mac 上。\n\n按自己的习惯整理\n• 创建自定义收藏分类，设置名称并从 40 个 Emoji 中选择标识。\n• 收藏分类与历史并列显示，分类较多时可横向滚动，历史入口始终保留。\n• 拖动卡片到分类即可收藏，拖到加号可创建分类并一起收藏。\n• 把常用卡片钉在面板前端，支持单张、多选和分组；默认快捷键 ⌘⇧T。\n• 收藏和面板钉住的内容跳过自动到期与容量清理，仍可手动删除。\n\n不只搜索文字卡片\n• 按关键词、类型或日期查找，使用日历查看每天仍保留的记录数量。\n• 搜索词也能匹配图片中的文字。未识别的图片在本机逐张处理，结果陆续补充，已有识别结果可复用。\n• 区分屏幕截屏、ClipHoook 截图等来源，查看来源应用和复制时间。\n\n编辑与再次使用\n• 编辑文字和链接卡片；修改富文本后按纯文本保存。\n• 去除空格、多余空行、转换大小写，格式化 JSON，进行 Base64、URL 和 HTML 实体编码转换。\n• 清理链接前预览并选择要删除的参数，保留需要的参数和片段。\n• 复制所选内容、复制纯文本或拖放到支持的应用；多选复制后仍保持独立卡片。\n• 双击卡片可尝试返回原应用并自动粘贴。需要系统键盘事件权限，目标应用须支持粘贴；也可仅复制后手动按 ⌘V。\n\n截图后直接处理\n• 同一截图入口支持拖选区域或点击窗口，另有整个屏幕截图与滚动长截图。\n• 默认冻结取景画面；可移动选区、调整八个锚点，使用局部放大和取色辅助精确选择。\n• 矩形、椭圆、箭头、文字、画笔、荧光笔、序号、区域高亮、钢笔和贴图等标注工具。\n• 支持背景模糊、马赛克、椭圆或圆角矩形放大镜，可调节效果和颜色。\n• 标注可移动、缩放，文字可重新编辑；保存后的可编辑记录也可再次打开。\n• 图片卡片、预览、截图和标注均可保存为文件，默认 ⌘S，并记住上次选择的文件夹。\n\n识别、翻译与桌面贴图\n• 图片预览和截图中直接识别文字、复制结果或翻译。\n• 支持的系统上默认中译英、英译中，也可选择其他语言；截图译文可覆盖到图片上。\n• 将图片钉在桌面，拖动摆放、捏合缩放，调整到最低 10% 的不透明度；右键可复制。\n• 多张贴图可叠放，点击置顶；双击或点击关闭按钮取消钉住。\n• 可选开启 iPhone 截图接收，使用快捷指令经可互访的局域网发送到 Mac。\n\n由你控制\n• 设置历史保留时间、存储上限、排除记录的应用和常用快捷键。\n• 文件默认保存引用，访问受限时可授权对应文件或文件夹；保存完整文件副本需主动选择。\n• 无需注册，无广告或第三方分析 SDK，不向开发者上传历史内容。\n\n系统与使用说明\n支持 macOS 14 及更新系统。截图需要屏幕捕捉权限；部分文件操作需要选择文件或文件夹授权。翻译在 macOS 15 及更新系统使用本机接口，首次可能需要下载 Apple 语言资源；macOS 14.4–14.x 使用系统翻译弹窗，截图内覆盖翻译需要 macOS 15 及更新系统。macOS 14.0–14.3 不提供系统翻译。\n\n滚动长截图需要你手动滚动并保留重叠画面。受系统或应用限制的窗口可能无法截取。可编辑标注会保留原始底图；分享遮盖后的内容时，请使用合并后的导出图片。\n\n联系邮箱：584772541@qq.com",
+    "whats-new": "新增自定义收藏分类\n• 收藏分类与历史并列显示，支持名称及 40 个 Emoji 标识。\n• 拖入卡片收藏，拖到加号可新建分类并收藏；历史入口在横向滚动时保持固定。\n\n常用卡片固定在前\n• 单张、多选和分组可钉在面板前端，默认 ⌘⇧T，支持修改。\n• 点击蓝色图钉即可取消；重启后恢复状态和顺序，钉住内容不参与自动清理。\n\n搜索、预览和导出\n• 搜索词可直接匹配图片中的文字，在本机逐张识别并陆续补充结果。\n• 日历突出今天，提高记录数量的可读性。\n• 图片右键、预览、截图高级工具及标注中可保存文件，默认 ⌘S，并记住上次选择的文件夹。\n\n可靠性与外观\n• 改善卡片拖放、收藏、Esc 取消时的面板外观及圆角裁切。\n• 标注底图和编辑数据完整保存，保存失败时保留上一版。\n• 减少历史自动清理的重复扫描，继续保护收藏、面板钉住及所需分组成员。\n• 更新应用内隐私说明与版本记录。",
+    "review-notes-en": "ClipHoook 2.1.0 (10) is a menu-bar clipboard and screenshot utility. No account or login is required. The app runs in the App Sandbox. This submission includes the current complete feature set, including user-initiated double-click paste.\n\nMain entry: click the ClipHoook menu-bar icon or press Command-Shift-V. Copy a short text and an image in another app to create test history.\n\nChanges since the previous 2.0.0 (9) export:\n- Custom favorite categories with names and 40 Emoji choices, shown beside History. Click + to create one; drag a card onto its tab, or drag to + to create a category and collect it. There is no separate default Favorites tab. History stays fixed when category tabs scroll.\n- Pin cards or groups at the front of the panel: use the context menu or Command-Shift-T. Click the blue pin to unpin. State survives restart and pinned cards are excluded from automatic cleanup.\n- Search can find text inside images. Unprocessed images in the current scope are recognized locally in sequence; results appear progressively and are cached. A loading indicator is shown while recognition is pending.\n- Save images using Command-S from a card or preview, or Save in screenshot Advanced Tools. The system save panel starts in Downloads and remembers the last selected folder.\n- Improvements to calendar readability, drag cancellation, panel material/clipping, editable annotation persistence and cleanup performance.\n\nExisting screenshot workflow:\nOption-A selects a region or window; Option-W captures a screen; Command-Shift-D starts manual scrolling capture. After selection, annotate and choose the completion icon to save/copy, or Esc to cancel. The app offers OCR (Command-W), translation (Command-B), pin to desktop (Command-T) and export. Shortcuts can be changed in settings. A desktop pin and a card pinned to the panel are different features.\n\nPermissions and data:\nScreen capture permission is used only when the user invokes screen-related features. File access is user-selected; history normally references original files rather than automatically duplicating their full contents. iPhone screenshot receiving is off by default; when enabled, the paired iPhone sends images over the local network directly to the Mac.\n\nAutomatic paste is optional and user-initiated. It writes the chosen content to NSPasteboard, restores the target app, then sends Command-V with Core Graphics event-posting APIs after permission. When available, AXUIElement APIs compare the focused element identity; otherwise a window identity check is used. The app does not read text from the focused field. If permission or focus validation fails, users can paste manually with Command-V. If permission has just been enabled but is not yet effective, quit and reopen ClipHoook as the in-app message explains. No general-purpose automation, script execution or keystroke logging is provided.\n\nmacOS 14+ is supported. On macOS 15+, translation uses Apple's on-device Translation framework and may request language downloads. macOS 14.4–14.x uses the system text translation popover; translation overlays require macOS 15+. macOS 14.0–14.3 does not offer translation. Clipboard, screenshot and OCR features remain available.\n\nHistory, categories, OCR and editable annotations remain on the device. Editable annotations retain their original image; exported images flatten the effects. No advertising or third-party analytics SDK is included, and no content is uploaded to a developer server. The bundled privacy policy describes this build.\n\nContact: 584772541@qq.com",
+    "review-reply-en": "Hello App Review Team,\n\nWe have prepared ClipHoook 2.1.0 (build 10) for review. This update adds custom favorite categories, cards pinned at the front of the clipboard panel, local image-text search, and image export improvements. It also improves calendar readability, drag cancellation and editable annotation storage.\n\nThe app requires no account. Review notes include entry points, default shortcuts and testing steps. The in-app privacy policy and product description have been updated to match this build, including local processing, Apple translation services, file access, optional local-network screenshot receiving, and user-initiated automatic paste.\n\nDouble-click paste remains in this build. It writes the selected content to the system clipboard and sends Command-V only after the required keyboard-event permission and target-focus checks. It can compare Accessibility element identities without reading the focused field's text. Manual copy and paste remain available without this permission. We have described the implementation in the review notes rather than representing it as a disability-specific feature.\n\nPlease let us know if you need any additional steps or information to reproduce a behavior.\n\nThank you."
+  },
+  "validation": {
+    "name": {
+      "count": 17,
+      "unit": "characters",
+      "limit": 30
+    },
+    "subtitle": {
+      "count": 14,
+      "unit": "characters",
+      "limit": 30
+    },
+    "promotional-text": {
+      "count": 84,
+      "unit": "characters",
+      "limit": 170
+    },
+    "keywords": {
+      "count": 94,
+      "unit": "UTF-8 bytes",
+      "limit": 100
+    },
+    "description": {
+      "count": 1433,
+      "unit": "characters",
+      "limit": 4000
+    },
+    "whats-new": {
+      "count": 390,
+      "unit": "characters",
+      "limit": 4000
+    },
+    "review-notes-en": {
+      "count": 3564,
+      "unit": "characters",
+      "limit": 4000
+    },
+    "review-reply-en": {
+      "count": 1232,
+      "unit": "characters",
+      "limit": null
+    }
+  }
+}

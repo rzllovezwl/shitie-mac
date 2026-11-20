@@ -13,8 +13,8 @@ struct ReleaseHistoryView: View {
                     List {
                         ForEach(history.releases) { release in
                             Section {
-                                ForEach(release.changes.indices, id: \.self) { index in
-                                    LucideLabel(release.changes[index], symbol: .circleCheck)
+                                ForEach(release.changeRows) { change in
+                                    LucideLabel(change.text, symbol: .circleCheck)
                                         .labelStyle(.titleAndIcon)
                                         .padding(.vertical, 3)
                                 }

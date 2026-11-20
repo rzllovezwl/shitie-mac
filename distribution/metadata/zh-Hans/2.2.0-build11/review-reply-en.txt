@@ -1,0 +1,11 @@
+Hello App Review Team,
+
+We are submitting ClipHoook 2.2.0 (build 11). This update adds a side staging shelf for cross-app drag and drop, a global clipboard history search window, and card reordering. It also improves text editing entry points, drag previews, selection scrolling and annotation toolbar readability.
+
+No login is required. Review notes describe each entry point, default shortcut, permission and system-version limitation. The product description, bundled privacy policy and version history have been updated for this build. It contains still-image capture and annotation, with no screen recording feature or widget extension.
+
+Existing user-initiated automatic paste remains available with the required keyboard-event permission and focus checks; manual copy and paste are also supported. Clipboard history and staging content are stored on the Mac. The optional iPhone screenshot receiver is disabled by default and uses a paired local-network address.
+
+Please let us know if any additional reproduction steps are needed.
+
+Thank you.

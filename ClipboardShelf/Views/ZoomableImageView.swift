@@ -74,7 +74,8 @@ enum ImagePixelDimensions {
     }
 }
 
-private final class CenteringClipView: NSClipView {
+final class CenteringClipView: NSClipView {
+    var showsCheckerboard = true
     private static let lightCheckerboard = checkerboardColor(base: 0.96, alternate: 0.86)
     private static let darkCheckerboard = checkerboardColor(base: 0.18, alternate: 0.25)
 
@@ -83,7 +84,7 @@ private final class CenteringClipView: NSClipView {
     override func draw(_ dirtyRect: NSRect) {
         // The checkerboard represents transparent pixels in the image, not
         // unused space in the preview window (notably beside portrait images).
-        guard let documentView else { return }
+        guard showsCheckerboard, let documentView else { return }
         let imageRect = dirtyRect.intersection(documentView.frame)
         guard !imageRect.isNull, !imageRect.isEmpty else { return }
         let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua

@@ -1,9 +1,20 @@
 import AppKit
+import ImageIO
 
 /// Keeps security-scoped originals open until an external drag ends.
 struct ClipboardDragPayload {
     let writers: [NSPasteboardWriting]
     let fileAccesses: [FilePreviewAccess]
+    var sourceEntryIDs: [UUID] = []
+    var reorderScope: ClipboardCardOrderScope? = nil
+    var exportsContent = true
+}
+
+enum ClipboardInternalDrag {
+    static let type = NSPasteboard.PasteboardType("com.renzhenglin.cliphoook.history-entry-ids")
+    static let destinationTypes: [NSPasteboard.PasteboardType] = [
+        type, .fileURL, .string, .URL, .png, .tiff, .rtf, .rtfd, .html
+    ]
 }
 
 enum ClipboardCopyFormat: String, CaseIterable, Identifiable {
@@ -38,6 +49,46 @@ enum ClipboardGroupingPreference {
 @MainActor
 enum ClipboardPasteboardWriter {
     enum Mode: Equatable { case original, plainText }
+    private static let weChatURIListType = NSPasteboard.PasteboardType(
+        "com.trolltech.anymime.text--uri-list"
+    )
+
+    /// Use the stored image bytes, not the possibly downsampled view of a pin.
+    static func writeImageSnapshot(at url: URL, origin: ClipboardScreenshotOrigin?, to board: NSPasteboard) -> Bool {
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              let image = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(image) > 0,
+              let type = CGImageSourceGetType(image) else { return false }
+        let item = NSPasteboardItem()
+        guard item.setData(data, forType: NSPasteboard.PasteboardType(type as String)) else { return false }
+        if let origin { item.setString(origin.rawValue, forType: ClipboardScreenshotMetadata.pasteboardType) }
+        board.clearContents()
+        return board.writeObjects([item])
+    }
+
+    /// While a newly copied WeChat file is still on the system pasteboard,
+    /// leave WeChat's original item in place. Rewriting only its file URL
+    /// discards the source application's access handoff to the paste target.
+    /// This deliberately covers one file only: a multi-message WeChat item
+    /// may also contain text that the user did not select in our shelf.
+    static func canReuseOriginalWeChatFile(
+        _ entries: [ClipboardEntry], on board: NSPasteboard
+    ) -> Bool {
+        guard entries.count == 1, let entry = entries.first,
+              entry.kind == .fileReference,
+              ClipboardImageCapture.isWeChatSource(
+                name: entry.sourceAppName, bundleID: entry.sourceAppBundleID
+              ),
+              let expectedPath = entry.filePath,
+              let items = board.pasteboardItems, items.count == 1,
+              let item = items.first,
+              item.types.contains(.fileURL),
+              item.types.contains(weChatURIListType) else { return false }
+        let urls = (board.readObjects(
+            forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+        ) ?? []).compactMap { $0 as? URL }.filter(\.isFileURL)
+        return urls.count == 1 && urls[0].standardizedFileURL.path == expectedPath
+    }
 
     /// Build an independent drag pasteboard without replacing the user's
     /// general clipboard or counting the operation as a new copy.
@@ -79,9 +130,14 @@ enum ClipboardPasteboardWriter {
                       item.setData(
                         data, forType: NSPasteboard.PasteboardType(entry.imagePasteboardType ?? "public.png")
                       ) else { return nil }
+                ClipboardScreenshotMetadata.write(entry, to: item)
                 writers.append(item)
             case .fileReference:
-                guard let access = store.filePreviewAccess(for: entry) else { return nil }
+                // A file URL from WeChat's pasteboard is only a location.
+                // Re-publishing it without access creates a drag image but
+                // no destination receives the file. Require a readable source
+                // or an explicitly saved copy before beginning the drag.
+                guard let access = store.filePasteboardAccess(for: entry) else { return nil }
                 fileAccesses.append(access)
                 writers.append(access.url as NSURL)
             case .unavailableImage, .group:
@@ -122,15 +178,15 @@ enum ClipboardPasteboardWriter {
             guard item.setData(data, forType: NSPasteboard.PasteboardType(entry.imagePasteboardType ?? "public.png")) else {
                 return false
             }
+            ClipboardScreenshotMetadata.write(entry, to: item)
             board.clearContents()
             return board.writeObjects([item])
         case .unavailableImage:
             return false
         case .fileReference:
-            return store.withUsableFileURL(for: entry) { url in
-                board.clearContents()
-                return board.writeObjects([url as NSURL])
-            } ?? false
+            guard let access = store.filePasteboardAccess(for: entry) else { return false }
+            board.clearContents()
+            return withExtendedLifetime(access) { board.writeObjects([access.url as NSURL]) }
         case .group:
             return write(entry.groupMembers, from: store, to: board, mode: mode)
         }
@@ -153,14 +209,19 @@ enum ClipboardPasteboardWriter {
             return board.setString(texts.joined(separator: "\n\n"), forType: .string)
         }
         if members.allSatisfy({ $0.kind == .fileReference }) {
-            let urls = members.compactMap { store.withUsableFileURL(for: $0) { $0 as NSURL } }
-            guard urls.count == members.count else { return false }
+            // Keep every security scope open until AppKit has serialized the
+            // complete file list to the pasteboard.
+            let accesses = members.compactMap { store.filePasteboardAccess(for: $0) }
+            guard accesses.count == members.count else { return false }
             board.clearContents()
-            return board.writeObjects(urls)
+            return withExtendedLifetime(accesses) {
+                board.writeObjects(accesses.map { $0.url as NSURL })
+            }
         }
 
         let allImages = members.allSatisfy { $0.kind == .image }
         var items: [NSPasteboardItem] = []
+        var fileAccesses: [FilePreviewAccess] = []
         for entry in members {
             let item = NSPasteboardItem()
             switch entry.kind {
@@ -188,14 +249,16 @@ enum ClipboardPasteboardWriter {
             case .unavailableImage:
                 return false
             case .fileReference:
-                guard let url = store.withUsableFileURL(for: entry, { $0 }),
-                      item.setString(url.absoluteString, forType: .fileURL) else { return false }
+                guard let access = store.filePasteboardAccess(for: entry),
+                      item.setString(access.url.absoluteString, forType: .fileURL) else { return false }
+                fileAccesses.append(access)
             case .group:
                 return false
             }
+            ClipboardScreenshotMetadata.write(entry, to: item)
             items.append(item)
         }
         board.clearContents()
-        return board.writeObjects(items)
+        return withExtendedLifetime(fileAccesses) { board.writeObjects(items) }
     }
 }

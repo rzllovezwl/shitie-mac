@@ -4,29 +4,54 @@ import SwiftUI
 enum LucideSymbol: String, CaseIterable {
     case alignLeft = "align-left"
     case arrowUpLeft = "arrow-up-left"
+    case arrowUpRight = "arrow-up-right"
+    case calendarDays = "calendar-days"
+    case chevronDown = "chevron-down"
     case circleCheck = "circle-check"
     case circleHelp = "circle-help"
+    case circle
     case clipboard
     case clipboardClock = "clipboard-clock"
     case copy
+    case copyCheck = "copy-check"
     case braces
+    case download
+    case ellipsis
     case file
     case fileCode = "file-code"
     case fileType = "file-type"
+    case grid3x3 = "grid-3x3"
     case history
+    case highlighter
     case image
     case keyboard
+    case languages
     case layoutDashboard = "layout-dashboard"
     case link = "link-2"
+    case listOrdered = "list-ordered"
+    case mousePointer2 = "mouse-pointer-2"
     case pause
+    case pencil
+    case penTool = "pen-tool"
+    case pin
+    case pinOff = "pin-off"
     case play
     case scanSearch = "scan-search"
+    case scrollText = "scroll-text"
     case search
+    case square
+    case squareX = "square-x"
+    case squareFilled = "square-filled"
+    case star
     case settings = "settings-2"
     case shieldCheck = "shield-check"
+    case squarePen = "square-pen"
     case trash = "trash-2"
     case triangleAlert = "triangle-alert"
+    case type
+    case undo2 = "undo-2"
     case x
+    case zoomIn = "zoom-in"
 
     var assetName: String { "Lucide-\(rawValue)" }
 }

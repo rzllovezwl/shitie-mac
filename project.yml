@@ -2,7 +2,7 @@ name: ClipboardShelf
 options:
   createIntermediateGroups: true
   deploymentTarget:
-    macOS: "26.0"
+    macOS: "14.0"
 configs:
   Debug: debug
   Release: release
@@ -10,11 +10,12 @@ configs:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_STYLE: Automatic
     GENERATE_INFOPLIST_FILE: NO
     INFOPLIST_FILE: ClipboardShelf/Info.plist
     ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_ENTITLEMENTS: ClipboardShelf/Entitlements/Development.entitlements
     OTHER_LDFLAGS: "$(inherited) -lsqlite3"
     DEVELOPMENT_TEAM: 526XL62KAS
 schemes:
@@ -38,6 +39,10 @@ targets:
   ClipboardShelf:
     type: application
     platform: macOS
+    dependencies:
+      - sdk: ScreenCaptureKit.framework
+      - sdk: AVFoundation.framework
+      - sdk: AVKit.framework
     sources:
       - path: ClipboardShelf
         excludes:

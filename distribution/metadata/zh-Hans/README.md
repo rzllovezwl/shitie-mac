@@ -1,6 +1,26 @@
-# ClipHoook 1.0.0 商店素材（简体中文）
+# ClipHoook 商店素材（简体中文）
+
+当前开发分支已到 1.0.0（349），功能总览见 [项目首页](../../../README.md)。本目录按商店候选分别保留文案、隐私政策和构建核验，候选名称与状态按当时记录保留，不能据此判断 App Store Connect 的实时审核状态。
+
+## 当前提审候选 2.0.0（12）
+
+基于开发版 338，包含录屏、暂存箱、全局快速搜索和最新截图标注。双击和回车复制后由用户手动粘贴。安装包与资料压缩包位于 `dist/`。[构建 12 提审资料](2.0.0-build12/README.md)
+
+## 历史候选 2.2.0（11），基于开发 322
+
+资料见 [2.2.0-build11/README.md](2.2.0-build11/README.md) 和 [集中填写文稿](2.2.0-build11/App-Store-Connect-简体中文.md)。包括暂存箱、全局快速搜索、卡片排序及已有截图、OCR、翻译等功能，不含录屏或小组件；公开隐私政策请使用 [本次政策](2.2.0-build11/隐私政策.md)。安装包和资料压缩包位于 `dist/`，未上传、未提审。
+
+## 历史候选：2.1.0（10）
+
+当前资料见 [2.1.0-build10/App-Store-Connect-简体中文.md](2.1.0-build10/App-Store-Connect-简体中文.md)，包含名称、副标题、关键词、推广文本、描述、新增内容、审核备注、备用回复、隐私政策及上传步骤。该版本基于完整开发版 300 的独立源码快照，保留双击自动粘贴、自定义收藏分类、面板卡片钉住、图片文字搜索及截图标注等功能。
+
+公开隐私文稿使用 [2.1.0 构建 10 隐私政策](2.1.0-build10/隐私政策.md)。构建 5 文稿和下方内容仅适用于对应历史包，不应覆盖这次候选的政策。
+
+## 历史资料：1.0.0（4 / 5）
 
 本目录面向构建号 **4**（Bundle ID `com.renzhenglin.shitie`）。请在 App Store Connect 的 macOS 1.0.0 版本页填写，提交前以最终上传的构建为准。
+
+**构建 5 的公开隐私政策使用 [privacy-policy-build5.md](privacy-policy-build5.md)。** 该文稿按 1.0.0（5）的实际数据处理方式整理，双击后由用户手动按 ⌘V。下方构建 4 的其他素材为历史保留资料。
 
 | App Store Connect 字段 | 可复制内容 | 核验 |
 | --- | --- | --- |
@@ -22,7 +42,7 @@
 
 ## 隐私政策和支持网址
 
-公开页面已生成在 [隐私政策](../../web/privacy/index.html) 和 [支持页](../../web/support/index.html)，原始 Markdown 分别为 [PrivacyPolicy.md](../../../ClipboardShelf/Resources/PrivacyPolicy.md) 和 [support.md](../../web/support.md)。运营者为任政霖，联系邮箱为 584772541@qq.com。
+公开页面已生成在 [隐私政策](../../web/privacy/index.html) 和 [支持页](../../web/support/index.html)，原始 Markdown 分别为 [构建 5 隐私政策](privacy-policy-build5.md) 和 [support.md](../../web/support.md)。公开隐私页固定从构建 5 文稿生成，避免与开发版应用内政策混用。运营者为任政霖，联系邮箱为 584772541@qq.com。
 
 **还需将这两个目录部署到可公开访问的 HTTPS 网站**，取得实际 URL 后填写 App Store Connect 的 Privacy Policy URL 和 Support URL。本机文件路径、私有 GitHub 仓库链接不能代替公开网址。若页面地址改变，请保持两页之间的相对链接可用。
 

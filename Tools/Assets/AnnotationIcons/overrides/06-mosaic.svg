@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#41464D" role="img" aria-label="马赛克">
+  <title>马赛克</title>
+  <defs><clipPath id="tile"><rect x="3" y="3" width="18" height="18" rx="3"/></clipPath></defs>
+  <g clip-path="url(#tile)" fill="currentColor">
+    <rect x="3" y="3" width="18" height="18" opacity="0.45"/>
+    <path d="M3 3h6v6H3ZM15 3h6v6h-6ZM9 9h6v6H9ZM3 15h6v6H3ZM15 15h6v6h-6Z"/>
+  </g>
+</svg>

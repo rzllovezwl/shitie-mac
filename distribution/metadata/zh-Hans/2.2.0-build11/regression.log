@@ -1,0 +1,144 @@
+版本记录已校验：2.2.0（11），共 327 条
+Sonoma binary compatibility checks passed: minimum OS and weak framework loading
+Removed widget checks passed: no extension, App Group, URL registration or WidgetKit dependency
+Release history smoke test passed: 2.2.0 (11), 327 builds, 834 unique change rows
+Stage1 keyboard smoke test passed
+Text editor session smoke passed: modeless save/cancel/close, one-shot completion, draft selection, failure retry and IME composition
+Paste target window and pinned-image focus handoff smoke tests passed
+Quick search smoke tests passed: text, OCR, source, file, group, ranking, recent items, selection, cancellation and IME-safe keys
+Quick search paste routing passed: per-opening destination, original shelf path, cancellation, permission fallback and recovered files
+Phone screenshot transport smoke test passed
+ClipboardShelf/Services/MacScreenshotCapture.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Mac screenshot geometry smoke test passed
+长截图检查通过：像素级接缝、固定栏去重、滚动方向、失败恢复、撤回、歧义与长度上限
+/var/folders/zd/z4gfjhps2f3fpk788vm5zkmc0000gn/T/ClipHoookVerify.dotjDd/ScreenshotCursor.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Screenshot cursor routing smoke passed: no entry animation, hidden first-frame paint, reticle hotspot, key focus, display changes, tracking, drag, handoff and cleanup (no desktop display check)
+ClipboardFilterSmoke passed
+Clipboard calendar smoke passed: migration, deduplication, dates, groups, combined filters, third-party capture, historical backfill, pasteboard and deletion
+Clipboard text editing smoke passed: rollback, reclassification, duplicate handling, groups, persistence and copying
+Screenshot edit transaction smoke passed: legacy reads, failed initial save, failed replacement, restart, replacement and deletion
+Stage 0 storage smoke test passed
+Clipboard favorites smoke test passed: category editing, assignment, persistence, migration, retention, storage limits and groups
+Shelf pin smoke test passed: grouping, batch order, persistence, copying, expiry and size limits
+Card reordering smoke passed: history, filters, multi-selection, favorites, pins, groups, restart, rollback and retention
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+sandbox_extension_consume failed: 1 (Operation not permitted)
+Staging shelf smoke passed: reversible edge animation, reduced motion, Dock drag metadata fallback, drag gating, screen geometry, native/legacy file boards without copies, images, multi-export, restart, dedup, limits and atomic rollback
+Native gesture source smoke passed: gesture entry, button hit filtering, reset-before-Escape handoff, native completion authority, session lifetime, nil start and synchronous end cleanup (offscreen)
+Staging input smoke passed: AppKit window events, same-gesture handoff and already-reset recognizer during native tracking (offscreen; native completion is a fixture)
+Staging shelf visibility smoke passed: activating click focus, stable visible native drag source across tracking turns, 20 cancellation cleanup cycles, authoritative completion after Escape requests, original Escape pass-through, operation masks, reversible slide/fade, interrupted animation cleanup, stable drop/screenshot, native row drop, preview routing, accepted export removal, confirmed cancellation/refusal preservation and empty cleanup (offscreen; physical key cancellation requires desktop validation)
+Derived text copy smoke passed: pasteboard, OCR/translation history, persistence, deduplication, pause and one-shot feedback
+Shortcut smoke test passed
+Panel card drag smoke passed: screenshot Dock ordering, in-panel, favorites, boundary crossing, external drop and cancel
+Shelf selection smoke passed: pointer viewport preservation, pending scroll cancellation, bidirectional Shift ranges, Command toggling, context selection and keyboard follow (selection logic; SwiftUI scrolling requires desktop validation)
+Content drag input smoke passed: AppKit window input, click/double click, pointer-aligned preview, reset-before-Escape handoff and authoritative completion (offscreen; native completion is a fixture)
+Card drag lifecycle smoke passed: persistent backdrop, reordering, favorite priority, cancellation and native handoff
+ClipboardShelf/Services/MacScreenshotCapture.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Screenshot translation and preferences smoke passed: readable wrapping, complete text, no overlap, Retina and startup choices
+Screenshot appearance smoke passed: palette, legacy mosaic, blur and pixelation strength, clipping, editable reopen
+Screenshot annotation zoom smoke passed: fit, centering, pointer anchor, resize and export pixels
+Screenshot magnifier smoke passed: ellipse and rounded rectangle, glass rim, masked refraction, alpha preservation, Shift constraints, tiny lens, handles, zoom, shape switching, undo and legacy reopen
+Screenshot scan export smoke passed: transparent window preview, export alpha, loading labels, pointer passthrough and cleanup
+ClipboardShelf/Services/MacScreenshotCapture.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Screenshot annotation smoke passed: arrows, direct element drag and resize, undo/redo and editable reopen
+ClipboardShelf/Services/MacScreenshotCapture.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Screenshot text smoke passed: IME composition/candidates/deletion/cancel, placeholder/input/commit at 1x/1.5x/2x in light/dark mode, styles, edit/reopen, undo, legacy text and emoji
+ClipboardShelf/Services/MacScreenshotCapture.swift:1050:16: warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1031 |         let filter = SCContentFilter(desktopIndependentWindow: window)
+1032 |         let image: CGImage
+1033 |         if #available(macOS 26.0, *) {
+     |         `- note: enclosing scope here
+1034 |             let configuration = SCScreenshotConfiguration()
+1035 |             configuration.ignoreShadows = !includeShadow
+     :
+1048 |             configuration.captureResolution = .best
+1049 |             configuration.ignoreShadowsSingleWindow = !includeShadow
+1050 |             if #available(macOS 14.2, *) { configuration.includeChildWindows = false }
+     |                `- warning: unnecessary check for 'macOS'; enclosing scope ensures guard will always be true [#UselessAvailabilityCheck]
+1051 |             configuration.showsCursor = false
+1052 |             let scale = max(1, CGFloat(filter.pointPixelScale))
+
+[#UselessAvailabilityCheck]: <https://docs.swift.org/compiler/documentation/diagnostics/useless-availability-check>
+Pen/sticker smoke passed: cubic nodes, tangent editing, closure, undo, PNG/JPEG/SVG imports, clipboard, placement, resize, embedded reopen and Option anchors
+Toolbar layout smoke passed: clear glass and legacy frost, white/light/dark backdrop contrast, glass-sized shadow, compact illustrated dropdown alignment, selection backgrounds and actions, standalone magnifier, 320-1280 point single-line fitting, button hit regions, centring and SVG assets
+测试包检查通过：2.2.0 (11)，团队 526XL62KAS

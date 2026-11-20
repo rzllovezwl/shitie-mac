@@ -1,0 +1,52 @@
+Package "ClipHoook-2.1.0-build10-AppStore.pkg":
+   Status: signed by a developer certificate issued by Apple (Development)
+   Certificate Chain:
+    1. 3rd Party Mac Developer Installer: zhebflin ren (526XL62KAS)
+       Expires: 2027-10-16 03:32:34 +0000
+       SHA256 Fingerprint:
+           2E D2 DD 66 15 86 98 BF 4B 8B F4 2C 95 1B BB BD 27 B4 85 AC 27 92 
+           44 7D D8 50 66 7F 81 38 7E C0
+       ------------------------------------------------------------------------
+    2. Apple Worldwide Developer Relations Certification Authority
+       Expires: 2030-02-20 00:00:00 +0000
+       SHA256 Fingerprint:
+           DC F2 18 78 C7 7F 41 98 E4 B4 61 4F 03 D6 96 D8 9C 66 C6 60 08 D4 
+           24 4E 1B 99 16 1A AC 91 60 1F
+       ------------------------------------------------------------------------
+    3. Apple Root CA
+       Expires: 2035-02-09 21:40:36 +0000
+       SHA256 Fingerprint:
+           B0 B1 73 0E CB C7 FF 45 05 14 2C 49 F1 29 5E 6E DA 6B CA ED 7E 2C 
+           68 C5 BE 91 B5 A1 10 01 F0 24
+
+
+Executable=/private/tmp/cliphoook-store210-b10-inspect/com.renzhenglin.shitie.pkg/Payload/ClipHoook.app/Contents/MacOS/ClipHoook
+Identifier=com.renzhenglin.shitie
+Format=app bundle with Mach-O universal (x86_64 arm64)
+CodeDirectory v=20500 size=8578 flags=0x10000(runtime) hashes=257+7 location=embedded
+VersionPlatform=1
+VersionMin=917504
+VersionSDK=1769472
+Hash type=sha256 size=32
+CandidateCDHash sha256=a94bfcb56e47a3a270817512962970c36621d6eb
+CandidateCDHashFull sha256=a94bfcb56e47a3a270817512962970c36621d6eb7a0522fd3636445e598a569c
+Hash choices=sha256
+CMSDigest=a94bfcb56e47a3a270817512962970c36621d6eb7a0522fd3636445e598a569c
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=3702784
+Executable Segment flags=0x1
+Page size=16384
+CDHash=a94bfcb56e47a3a270817512962970c36621d6eb
+Signature size=4782
+Authority=Apple Distribution: zhebflin ren (526XL62KAS)
+Authority=Apple Worldwide Developer Relations Certification Authority
+Authority=Apple Root CA
+Signed Time=Nov 11, 2026 at 15:04:35
+Info.plist entries=28
+TeamIdentifier=526XL62KAS
+Runtime Version=27.0.0
+Sealed Resources version=2 rules=13 files=9
+Internal requirements count=1 size=188
+Total signatures=1
+Chosen signature=1

@@ -1,0 +1,18 @@
+ClipHoook 2.2.0 (11) is a sandboxed menu-bar clipboard and still-image screenshot utility. No account or login is required. This submission is based on development build 322; it contains no screen recording feature and no widget extension.
+
+Entry: use the menu-bar icon or Command-Shift-V. Copy some text and an image in another app to create history.
+
+New in this update:
+1. Staging shelf: drag a local file, image, text or link; a compact shelf appears at the side of the pointer's display. Drop content into it, then drag it to an app that accepts that type. Successful drops remove the shelf item; cancellation or rejection keeps it. Files reference their original locations. Independent image/text content is saved locally. Items survive restart. Swipe toward the display edge to collapse, and click the edge tab to expand. Space previews a selected item. Automatic appearance can be disabled in Settings > General, and the menu-bar menu can open the shelf manually.
+2. Global quick search: Command-Shift-Space, configurable in Settings > Shortcuts. Empty query shows the latest 10 records. Type to find retained text, filenames, sources and locally recognized image text. Arrow keys select; Return performs the configured paste action; Command-Return previews; Esc returns or closes. Main-panel filters and position remain independent.
+3. Drag cards within the panel to reorder. Command-E edits text cards or annotates image cards. Improvements cover drag image positioning, selection scrolling and annotation toolbar visibility on white backgrounds.
+
+Existing capture: Option-A selects a region/window; Option-W captures a screen; Command-Shift-D starts manual scrolling capture. Finish/copy saves the final image. OCR is Command-W, translation Command-B, desktop image pin Command-T, and image export Command-S. Card pinning at the front of the panel is Command-Shift-T. All these shortcuts are configurable.
+
+Permissions: screen capture access is used for still-image screenshots, frozen selection, magnification and manual scrolling capture, not video recording. File/folder access is user-selected. iPhone screenshot receiving is optional and off by default; it listens on the Mac for token-paired local-network uploads. There is no developer content server.
+
+Automatic paste remains optional and user-initiated. It writes selected content to NSPasteboard, restores the target app, checks focus, then posts Command-V using Core Graphics after the required event-posting permission. AXUIElement APIs may compare focused element identity; they do not read the field's text. Manual Command-V is available if permission or focus validation fails. If newly enabled permission has not taken effect, quit and reopen the app as the in-app guidance explains. The app has no keystroke logging or arbitrary script execution.
+
+macOS 14+ is supported. macOS 15+ uses Apple's on-device Translation framework; language downloads may be required. macOS 14.4–14.x uses the system text translation popover; image translation overlays require macOS 15+. Translation is unavailable on macOS 14.0–14.3.
+
+History, staging items, OCR and annotation editing data are local. Editable annotations retain the original image; exported images flatten the effects. No advertising or third-party analytics SDK is included. Contact: 584772541@qq.com

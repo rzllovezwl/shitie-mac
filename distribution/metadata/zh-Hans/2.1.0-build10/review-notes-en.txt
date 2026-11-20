@@ -1,0 +1,24 @@
+ClipHoook 2.1.0 (10) is a menu-bar clipboard and screenshot utility. No account or login is required. The app runs in the App Sandbox. This submission includes the current complete feature set, including user-initiated double-click paste.
+
+Main entry: click the ClipHoook menu-bar icon or press Command-Shift-V. Copy a short text and an image in another app to create test history.
+
+Changes since the previous 2.0.0 (9) export:
+- Custom favorite categories with names and 40 Emoji choices, shown beside History. Click + to create one; drag a card onto its tab, or drag to + to create a category and collect it. There is no separate default Favorites tab. History stays fixed when category tabs scroll.
+- Pin cards or groups at the front of the panel: use the context menu or Command-Shift-T. Click the blue pin to unpin. State survives restart and pinned cards are excluded from automatic cleanup.
+- Search can find text inside images. Unprocessed images in the current scope are recognized locally in sequence; results appear progressively and are cached. A loading indicator is shown while recognition is pending.
+- Save images using Command-S from a card or preview, or Save in screenshot Advanced Tools. The system save panel starts in Downloads and remembers the last selected folder.
+- Improvements to calendar readability, drag cancellation, panel material/clipping, editable annotation persistence and cleanup performance.
+
+Existing screenshot workflow:
+Option-A selects a region or window; Option-W captures a screen; Command-Shift-D starts manual scrolling capture. After selection, annotate and choose the completion icon to save/copy, or Esc to cancel. The app offers OCR (Command-W), translation (Command-B), pin to desktop (Command-T) and export. Shortcuts can be changed in settings. A desktop pin and a card pinned to the panel are different features.
+
+Permissions and data:
+Screen capture permission is used only when the user invokes screen-related features. File access is user-selected; history normally references original files rather than automatically duplicating their full contents. iPhone screenshot receiving is off by default; when enabled, the paired iPhone sends images over the local network directly to the Mac.
+
+Automatic paste is optional and user-initiated. It writes the chosen content to NSPasteboard, restores the target app, then sends Command-V with Core Graphics event-posting APIs after permission. When available, AXUIElement APIs compare the focused element identity; otherwise a window identity check is used. The app does not read text from the focused field. If permission or focus validation fails, users can paste manually with Command-V. If permission has just been enabled but is not yet effective, quit and reopen ClipHoook as the in-app message explains. No general-purpose automation, script execution or keystroke logging is provided.
+
+macOS 14+ is supported. On macOS 15+, translation uses Apple's on-device Translation framework and may request language downloads. macOS 14.4–14.x uses the system text translation popover; translation overlays require macOS 15+. macOS 14.0–14.3 does not offer translation. Clipboard, screenshot and OCR features remain available.
+
+History, categories, OCR and editable annotations remain on the device. Editable annotations retain their original image; exported images flatten the effects. No advertising or third-party analytics SDK is included, and no content is uploaded to a developer server. The bundled privacy policy describes this build.
+
+Contact: 584772541@qq.com

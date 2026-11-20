@@ -26,6 +26,10 @@ struct FileReferencePreview: View {
                 .font(.caption)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
+            if let recording = entry.screenRecording {
+                Label("\(recording.durationLabel) · \(ByteCountFormatter.string(fromByteCount: Int64(entry.byteCount), countStyle: .file))", systemImage: "play.circle.fill")
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -44,6 +48,7 @@ struct FileReferencePreview: View {
 struct FileQuickLookPreview: View {
     let entry: ClipboardEntry
     let thumbnailURL: URL?
+    let fileReferenceAvailable: Bool
     let makePreviewAccess: () -> FilePreviewAccess?
     let onInteractivePreviewAppear: () -> Void
     @State private var previewAccess: FilePreviewAccess?
@@ -70,7 +75,7 @@ struct FileQuickLookPreview: View {
                 FileReferencePreview(entry: entry, thumbnailURL: thumbnailURL)
             }
         }
-        .task(id: "\(entry.id.uuidString)-\(entry.fileCopyName ?? "")") {
+        .task(id: "\(entry.id.uuidString)-\(entry.fileCopyName ?? "")-\(fileReferenceAvailable)") {
             previewAccess = makePreviewAccess()
         }
     }

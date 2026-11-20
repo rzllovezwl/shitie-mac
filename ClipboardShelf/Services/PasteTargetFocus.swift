@@ -92,3 +92,35 @@ struct PasteTargetSnapshot {
         return window?.stillMatches() == true
     }
 }
+
+/// Desktop pins stay visible during paste, but must not take the keyboard
+/// back while the shelf is handing it to the original app.
+@MainActor
+final class PasteFocusHandoff {
+    private(set) var activeID: UUID?
+    private var pointerAtEnd: CGPoint?
+    var isSearchInteractionActive = false
+
+    var allowsPinnedImageKey: Bool { activeID == nil && !isSearchInteractionActive }
+
+    func begin() -> UUID {
+        let id = UUID()
+        activeID = id
+        pointerAtEnd = nil
+        return id
+    }
+
+    func end(_ id: UUID, at pointer: CGPoint) {
+        guard activeID == id else { return }
+        activeID = nil
+        pointerAtEnd = pointer
+    }
+
+    func allowsPinnedImageHoverFocus(at pointer: CGPoint) -> Bool {
+        // The shelf ordering out can produce a new mouse-entered event
+        // without the pointer moving. Resume hover focus on real movement.
+        guard allowsPinnedImageKey, pointerAtEnd != pointer else { return false }
+        pointerAtEnd = nil
+        return true
+    }
+}

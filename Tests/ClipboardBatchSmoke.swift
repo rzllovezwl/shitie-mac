@@ -7,7 +7,7 @@ private enum ClipboardBatchTestError: Error { case failed(String) }
 @main
 struct ClipboardBatchSmoke {
     @MainActor
-    static func main() throws {
+    static func main() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipHoookBatch-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -51,6 +51,274 @@ struct ClipboardBatchSmoke {
         try check(ClipboardPasteboardWriter.write(group, from: fileStore, to: destinationBoard),
                   "整组文件无法回写剪贴板")
         try check(try capture(destinationBoard).count == 2, "整组文件回写后缺少项目")
+        let temporarySource = root.appendingPathComponent("微信临时文件.xlsx")
+        try Data("file contents".utf8).write(to: temporarySource)
+        let recoveryStore = ClipboardHistoryStore(
+            directory: root.appendingPathComponent("recovery"), defaults: defaults
+        )
+        try check(try recoveryStore.addFileReference(temporarySource, sourceAppName: "微信"),
+                  "临时文件引用未保存")
+        let staleEntry = recoveryStore.rootEntries[0]
+        try FileManager.default.removeItem(at: temporarySource)
+        let beforeFailedWrite = destinationBoard.changeCount
+        try check(!ClipboardPasteboardWriter.write(staleEntry, from: recoveryStore,
+                                                  to: destinationBoard),
+                  "原文件不存在时不应清空剪贴板")
+        try check(destinationBoard.changeCount == beforeFailedWrite,
+                  "失效文件复制失败时不应替换系统剪贴板")
+        let replacementFolder = root.appendingPathComponent("Downloads", isDirectory: true)
+        try FileManager.default.createDirectory(at: replacementFolder,
+                                                withIntermediateDirectories: true)
+        let replacement = replacementFolder.appendingPathComponent("微信临时文件.xlsx")
+        try Data("file contents".utf8).write(to: replacement)
+        try recoveryStore.relinkFileReference(staleEntry, to: replacement)
+        let recoveredEntry = recoveryStore.rootEntries[0]
+        try check(!recoveryStore.fileHasSavedCopy(recoveredEntry)
+                  && recoveredEntry.filePath == replacement.path,
+                  "重新选择文件后应只保存引用，不保存文件副本")
+        try check(ClipboardPasteboardWriter.write(recoveredEntry, from: recoveryStore,
+                                                  to: destinationBoard),
+                  "恢复文件后仍无法复制")
+        try check(try capture(destinationBoard).count == 1,
+                  "恢复的文件未写入剪贴板")
+        try await recoveryStore.saveFileCopy(for: recoveredEntry)
+        let withManualCopy = recoveryStore.rootEntries[0]
+        try check(recoveryStore.fileHasSavedCopy(withManualCopy), "手动保存副本失败")
+        try FileManager.default.removeItem(at: replacement)
+        do {
+            try recoveryStore.removeSavedFileCopy(for: withManualCopy)
+            throw ClipboardBatchTestError.failed("原文件不可用时不应删除唯一的副本")
+        } catch ClipboardHistoryStoreError.fileReferenceUnavailable {
+            try check(recoveryStore.fileHasSavedCopy(recoveryStore.rootEntries[0]),
+                      "移除失败后应保留副本")
+        }
+        try Data("file contents".utf8).write(to: replacement)
+        try recoveryStore.removeSavedFileCopy(for: withManualCopy)
+        let withoutManualCopy = recoveryStore.rootEntries[0]
+        try check(!recoveryStore.fileHasSavedCopy(withoutManualCopy)
+                  && ClipboardPasteboardWriter.write(withoutManualCopy, from: recoveryStore,
+                                                    to: destinationBoard),
+                  "移除副本后应仍能使用原文件引用")
+        let bookmarkSource = root.appendingPathComponent("bookmark-refresh.txt")
+        try Data("bookmark".utf8).write(to: bookmarkSource)
+        let bookmarkStore = ClipboardHistoryStore(
+            directory: root.appendingPathComponent("bookmark-refresh"), defaults: defaults
+        )
+        try check(try bookmarkStore.addFileReference(bookmarkSource, sourceAppName: "微信"),
+                  "文件书签未保存")
+        let originalBookmarkEntry = bookmarkStore.rootEntries[0]
+        guard let bookmarkName = originalBookmarkEntry.fileBookmarkName else {
+            throw ClipboardBatchTestError.failed("文件书签未创建")
+        }
+        let bookmarkURL = root.appendingPathComponent("bookmark-refresh/Bookmarks/\(bookmarkName)")
+        try Data("stale bookmark".utf8).write(to: bookmarkURL, options: .atomic)
+        try check(try bookmarkStore.addFileReference(bookmarkSource, sourceAppName: "微信"),
+                  "重新复制同一文件失败")
+        try check(bookmarkStore.rootEntries[0].id == originalBookmarkEntry.id &&
+                  (try Data(contentsOf: bookmarkURL)) != Data("stale bookmark".utf8),
+                  "重新复制同一文件应刷新旧书签")
+        let nativeBoard = NSPasteboard.withUniqueName()
+        defer { nativeBoard.releaseGlobally() }
+        let nativeItem = NSPasteboardItem()
+        try check(nativeItem.setString(bookmarkSource.absoluteString, forType: .fileURL)
+                  && nativeItem.setData(Data(), forType: NSPasteboard.PasteboardType(
+                    "com.trolltech.anymime.text--uri-list"
+                  )), "无法构造微信原始文件剪贴板")
+        nativeBoard.clearContents()
+        try check(nativeBoard.writeObjects([nativeItem]), "无法写入微信原始文件剪贴板")
+        let beforeNativeReuse = nativeBoard.changeCount
+        try check(ClipboardPasteboardWriter.canReuseOriginalWeChatFile(
+                    [bookmarkStore.rootEntries[0]], on: nativeBoard
+                  ) && nativeBoard.changeCount == beforeNativeReuse,
+                  "微信文件仍在原剪贴板时应保留其访问交接")
+        guard let nativeDrag = ClipboardPasteboardWriter.dragPayload(
+            [bookmarkStore.rootEntries[0]], from: bookmarkStore
+        ) else { throw ClipboardBatchTestError.failed("当前微信文件不能开始拖动") }
+        try check(nativeDrag.writers.count == 1
+                  && nativeDrag.writers[0] is NSURL
+                  && nativeDrag.fileAccesses.count == 1,
+                  "可读取的微信文件拖动应保留源文件访问")
+        destinationBoard.clearContents()
+        try check(destinationBoard.writeObjects(nativeDrag.writers),
+                  "微信文件拖动未写入独立剪贴板")
+        let draggedFiles = try capture(destinationBoard)
+        try check(draggedFiles.count == 1 && nativeBoard.changeCount == beforeNativeReuse,
+                  "微信文件拖动应写入独立剪贴板而不改变当前复制内容")
+        nativeBoard.clearContents()
+        try check(nativeBoard.writeObjects([bookmarkSource as NSURL]),
+                  "无法构造已改写的文件剪贴板")
+        try check(!ClipboardPasteboardWriter.canReuseOriginalWeChatFile(
+                    [bookmarkStore.rootEntries[0]], on: nativeBoard
+                  ), "改写后的文件 URL 不应误认为微信原始剪贴板")
+        let weChatTemporaryFile = root.appendingPathComponent(
+            "Library/Containers/com.tencent.xinWeChat/Data/temp/RWTemp/session/file.fit"
+        )
+        try FileManager.default.createDirectory(
+            at: weChatTemporaryFile.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        try Data("fit".utf8).write(to: weChatTemporaryFile)
+        let weChatBoard = NSPasteboard.withUniqueName()
+        defer { weChatBoard.releaseGlobally() }
+        weChatBoard.clearContents()
+        try check(weChatBoard.writeObjects([weChatTemporaryFile as NSURL]),
+                  "无法构造微信临时文件剪贴板")
+        let weChatFiles = try capture(weChatBoard, sourceAppName: "微信")
+        try check(try bookmarkStore.addCapturedBatch(
+            weChatFiles, sourceAppName: "微信", sourceAppBundleID: "com.tencent.xinWeChat",
+            automaticallyGroup: true
+        ),
+                  "微信临时文件引用未保存")
+        let weChatTemporaryEntry = bookmarkStore.rootEntries[0]
+        let expectedWeChatFolder = weChatTemporaryFile.deletingLastPathComponent()
+            .deletingLastPathComponent()
+        try check(bookmarkStore.suggestedWeChatFolder(for: weChatTemporaryEntry)
+                  == expectedWeChatFolder,
+                  "微信临时文件应建议授权稳定的文件夹")
+        try bookmarkStore.authorizeWeChatFolder(expectedWeChatFolder,
+                                                for: weChatTemporaryEntry)
+        let permissionStore = ClipboardHistoryStore(
+            directory: root.appendingPathComponent("bookmark-refresh"), defaults: defaults
+        )
+        try check(permissionStore.filePasteboardAccess(for: weChatTemporaryEntry) != nil
+                  && !permissionStore.fileHasSavedCopy(weChatTemporaryEntry),
+                  "微信文件夹授权重启后应可用且不保存文件副本")
+        weChatBoard.clearContents()
+        try check(weChatBoard.setString("later text", forType: .string),
+                  "无法切换微信原剪贴板")
+        try check(bookmarkStore.filePasteboardAccess(for: weChatTemporaryEntry) != nil
+                  && ClipboardPasteboardWriter.write(
+                    weChatTemporaryEntry, from: bookmarkStore, to: destinationBoard
+                  ), "仍可访问的微信临时文件应能从历史复制")
+        try check(ClipboardPasteboardWriter.dragPayload(
+                    [weChatTemporaryEntry], from: bookmarkStore
+                  )?.writers.count == 1,
+                  "仍可访问的微信临时文件应能从历史拖动")
+        try await bookmarkStore.saveFileCopy(for: weChatTemporaryEntry)
+        let temporaryWithCopy = bookmarkStore.rootEntries[0]
+        try check(bookmarkStore.fileHasSavedCopy(temporaryWithCopy),
+                  "测试所需的微信临时文件副本未创建")
+        try bookmarkStore.removeSavedFileCopy(for: temporaryWithCopy)
+        try check(!bookmarkStore.fileHasSavedCopy(bookmarkStore.rootEntries[0])
+                  && bookmarkStore.filePasteboardAccess(for: bookmarkStore.rootEntries[0]) != nil,
+                  "微信原文件仍可访问时应能移除先前保存的副本")
+        try FileManager.default.removeItem(at: weChatTemporaryFile)
+        let beforeTemporaryWrite = destinationBoard.changeCount
+        try check(bookmarkStore.filePasteboardAccess(for: weChatTemporaryEntry) == nil
+                  && !ClipboardPasteboardWriter.write(
+                    weChatTemporaryEntry, from: bookmarkStore, to: destinationBoard
+                  ) && destinationBoard.changeCount == beforeTemporaryWrite,
+                  "微信临时文件失效后不可改写为死文件 URL")
+        try check(ClipboardPasteboardWriter.dragPayload(
+                    [weChatTemporaryEntry], from: bookmarkStore
+                  ) == nil, "微信临时文件失效后不可开始无效拖动")
+        let largeFile = root.appendingPathComponent("large-sparse-file.bin")
+        try Data().write(to: largeFile)
+        let largeFileHandle = try FileHandle(forWritingTo: largeFile)
+        try largeFileHandle.truncate(atOffset: 3 * 1_024 * 1_024 * 1_024)
+        try largeFileHandle.close()
+        let beforeLargeReference = bookmarkStore.activeStorageBytes
+        try check(try bookmarkStore.addFileReference(largeFile, sourceAppName: "微信"),
+                  "大文件位置引用未保存")
+        try check(bookmarkStore.rootEntries[0].byteCount > 2_000_000_000 &&
+                  bookmarkStore.rootEntries[0].fileCopyName == nil &&
+                  bookmarkStore.activeStorageBytes - beforeLargeReference < 1_000_000,
+                  "大文件位置引用不应复制文件内容到历史目录")
+        let staleLarge = root.appendingPathComponent("stale-large-file.bin")
+        try Data().write(to: staleLarge)
+        try check(try bookmarkStore.addFileReference(staleLarge, sourceAppName: "微信"),
+                  "待恢复的大文件引用未保存")
+        let staleLargeEntry = bookmarkStore.rootEntries[0]
+        guard let staleBookmarkName = staleLargeEntry.fileBookmarkName else {
+            throw ClipboardBatchTestError.failed("待恢复文件缺少书签")
+        }
+        let staleBookmarkData = try Data(contentsOf: root.appendingPathComponent(
+            "bookmark-refresh/Bookmarks/\(staleBookmarkName)"
+        ))
+        try FileManager.default.removeItem(at: staleLarge)
+        let beforeLargeRelink = bookmarkStore.activeStorageBytes
+        try bookmarkStore.relinkFileReference(staleLargeEntry, to: largeFile)
+        try check(bookmarkStore.rootEntries[0].fileCopyName == nil &&
+                  bookmarkStore.rootEntries[0].digest != staleLargeEntry.digest &&
+                  bookmarkStore.activeStorageBytes - beforeLargeRelink < 1_000_000,
+                  "重新关联大文件不应保存文件内容副本")
+        let relinkedLarge = bookmarkStore.rootEntries[0]
+        guard let relinkedBookmarkName = relinkedLarge.fileBookmarkName else {
+            throw ClipboardBatchTestError.failed("重新关联后缺少书签")
+        }
+        // Simulate a record written by an older build: the card points to the
+        // new location but its bookmark still resolves to the old one.
+        try Data().write(to: staleLarge)
+        try staleBookmarkData.write(to: root.appendingPathComponent(
+            "bookmark-refresh/Bookmarks/\(relinkedBookmarkName)"
+        ), options: .atomic)
+        try check(bookmarkStore.filePasteboardAccess(for: relinkedLarge)?.url.path == largeFile.path,
+                  "旧书签不应覆盖卡片明确记录的文件位置")
+        try check(try bookmarkStore.addFileReference(staleLarge, sourceAppName: "微信"),
+                  "重新复制旧路径失败")
+        try check(bookmarkStore.entries.contains(where: {
+            $0.id == relinkedLarge.id && $0.filePath == largeFile.path
+        }) && bookmarkStore.entries.contains(where: {
+            $0.id != relinkedLarge.id && $0.filePath == staleLarge.path
+        }), "旧路径重新复制不应覆盖已重新关联的卡片")
+
+        // Reproduce the persisted state of builds before 151, where relinking
+        // changed the card path but left its digest and bookmark at the old
+        // WeChat location. The next copy must create a new card, not rewrite
+        // the relinked one.
+        let legacySource = root.appendingPathComponent("legacy/WeChat/file.fit")
+        let legacyTarget = root.appendingPathComponent("legacy/Downloads/file.fit")
+        try FileManager.default.createDirectory(at: legacySource.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: legacyTarget.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try Data("fit".utf8).write(to: legacySource)
+        try Data("fit".utf8).write(to: legacyTarget)
+        let legacyDirectory = root.appendingPathComponent("legacy/history")
+        let legacyID: UUID
+        do {
+            let originalStore = ClipboardHistoryStore(directory: legacyDirectory, defaults: defaults)
+            try check(try originalStore.addFileReference(legacySource, sourceAppName: "微信"),
+                      "旧版文件记录未创建")
+            legacyID = originalStore.rootEntries[0].id
+        }
+        var legacyDB: OpaquePointer?
+        try check(sqlite3_open(legacyDirectory.appendingPathComponent("history.sqlite").path,
+                               &legacyDB) == SQLITE_OK, "无法打开旧版测试数据库")
+        let legacySQL = "UPDATE history_entries SET file_path = '\(legacyTarget.path)' "
+            + "WHERE id = '\(legacyID.uuidString)'"
+        let legacyUpdate = sqlite3_exec(legacyDB, legacySQL, nil, nil, nil)
+        sqlite3_close(legacyDB)
+        try check(legacyUpdate == SQLITE_OK, "无法模拟旧版路径与书签错位")
+        let migratedLegacy = ClipboardHistoryStore(directory: legacyDirectory, defaults: defaults)
+        let mismatchedEntry = migratedLegacy.rootEntries[0]
+        try check(migratedLegacy.filePasteboardAccess(for: mismatchedEntry)?.url.path == legacyTarget.path,
+                  "加载旧版错位卡片时应以记录路径为准")
+        try check(try migratedLegacy.addFileReference(legacySource, sourceAppName: "微信"),
+                  "重新复制旧微信路径失败")
+        try check(migratedLegacy.rootEntries.count == 2 &&
+                  migratedLegacy.entries.contains(where: {
+                      $0.id == legacyID && $0.filePath == legacyTarget.path
+                  }) && migratedLegacy.entries.contains(where: {
+                      $0.id != legacyID && $0.filePath == legacySource.path
+                  }), "旧版错位卡片不应吞掉新的微信文件")
+        let restrictedFile = root.appendingPathComponent("unreadable-file.json")
+        try Data("{}".utf8).write(to: restrictedFile)
+        try check(try bookmarkStore.addFileReference(restrictedFile, sourceAppName: "微信"),
+                  "受限文件引用未保存")
+        let restrictedEntry = bookmarkStore.rootEntries[0]
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: restrictedFile.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600],
+                                                       ofItemAtPath: restrictedFile.path) }
+        try check(bookmarkStore.filePreviewAccess(for: restrictedEntry) == nil,
+                  "不可读文件不应进入预览")
+        let beforeRestrictedWrite = destinationBoard.changeCount
+        try check(!ClipboardPasteboardWriter.write(restrictedEntry, from: bookmarkStore,
+                                                   to: destinationBoard)
+                  && destinationBoard.changeCount == beforeRestrictedWrite,
+                  "不可读文件不能改写为无法供目标应用粘贴的 URL")
+        try check(ClipboardPasteboardWriter.dragPayload([restrictedEntry],
+                                                        from: bookmarkStore) == nil,
+                  "不可读文件不能启动看似成功的拖动")
         guard let fileDrag = ClipboardPasteboardWriter.dragPayload([group], from: fileStore) else {
             throw ClipboardBatchTestError.failed("整组文件不能开始拖放")
         }
@@ -96,6 +364,11 @@ struct ClipboardBatchSmoke {
                   "整组文字无法复制")
         try check(destinationBoard.string(forType: .string) == "第一段\n\n第二段",
                   "多文字复制顺序或分隔符错误")
+        try check(ClipboardPasteboardWriter.write(
+            textGroup.groupMembers[0], from: textStore, to: destinationBoard, mode: .plainText
+        ) && destinationBoard.string(forType: .string) == "第一段" &&
+                  destinationBoard.data(forType: .rtf) == nil,
+                  "复制纯文本时不应保留富文本格式")
         guard let textDrag = ClipboardPasteboardWriter.dragPayload([textGroup], from: textStore) else {
             throw ClipboardBatchTestError.failed("整组文字不能开始拖放")
         }
@@ -158,6 +431,47 @@ struct ClipboardBatchSmoke {
         try check(panelStore.rootEntries.prefix(2).map(\.kind) == [.text, .text],
                   "关闭自动成组后多选项目未独立置顶")
 
+        let manualFolder = root.appendingPathComponent("manual-group")
+        let manualStore = ClipboardHistoryStore(directory: manualFolder, defaults: defaults)
+        for value in ["甲", "乙", "丙", "丁"] {
+            _ = try manualStore.addText(value, sourceAppName: "笔记")
+        }
+        let manualByText = Dictionary(uniqueKeysWithValues: manualStore.entries.compactMap {
+            entry in entry.text.map { ($0, entry.id) }
+        })
+        func manualID(_ text: String) throws -> UUID {
+            guard let id = manualByText[text] else {
+                throw ClipboardBatchTestError.failed("缺少手动分组测试记录：\(text)")
+            }
+            return id
+        }
+        let firstManualGroupID = try manualStore.groupSelection(
+            memberIDs: [manualID("甲"), manualID("乙"), manualID("丙")]
+        )
+        try check(firstManualGroupID != nil &&
+                  manualStore.rootEntries.first?.groupMembers.map(\.text) == ["甲", "乙", "丙"],
+                  "手动成组未保留所选顺序")
+        let secondManualGroupID = try manualStore.groupSelection(
+            memberIDs: [manualID("乙"), manualID("丁")]
+        )
+        try check(secondManualGroupID != nil &&
+                  manualStore.rootEntries.filter { $0.kind == .group }.count == 2,
+                  "重组后应同时保留原组的剩余成员和新组")
+        try check(manualStore.rootEntries.first(where: { $0.id == firstManualGroupID })?
+                  .groupMembers.map(\.text) == ["甲", "丙"] &&
+                  manualStore.rootEntries.first(where: { $0.id == secondManualGroupID })?
+                  .groupMembers.map(\.text) == ["乙", "丁"],
+                  "移出旧组时成员关系不正确")
+        let manualReload = ClipboardHistoryStore(directory: manualFolder, defaults: defaults)
+        try check(manualReload.rootEntries.filter { $0.kind == .group }.count == 2,
+                  "手动分组未持久保存")
+        try check(try manualReload.ungroupSelection(groupIDs: [secondManualGroupID!]),
+                  "取消手动分组失败")
+        try check(manualReload.rootEntries.first(where: { $0.id == firstManualGroupID })?
+                  .groupMembers.map(\.text) == ["甲", "丙"] &&
+                  manualReload.rootEntries.filter { $0.kind == .text }.compactMap(\.text).sorted() == ["丁", "乙"],
+                  "取消成组不应删除成员或影响其他分组")
+
         let mixedStore = ClipboardHistoryStore(directory: root.appendingPathComponent("mixed"), defaults: defaults)
         _ = try mixedStore.addCapturedBatch([.text("说明"), .fileReference(firstFile)],
                                             sourceAppName: nil, sourceAppBundleID: nil,
@@ -170,7 +484,7 @@ struct ClipboardBatchSmoke {
         let mixedCaptured = try capture(destinationBoard)
         try check(mixedCaptured.count == 2, "外部混合复制漏掉了文件或文字")
         if case .text("说明") = mixedCaptured[0],
-           case .fileReference(let mixedURL) = mixedCaptured[1] {
+           case .fileReference(let mixedURL, _) = mixedCaptured[1] {
             try check(mixedURL.standardizedFileURL == firstFile.standardizedFileURL,
                       "外部混合复制的文件顺序错误")
         } else {
@@ -240,7 +554,7 @@ struct ClipboardBatchSmoke {
         try check(sqlite3_open(databasePath, &handle) == SQLITE_OK, "无法建立旧数据库测试夹具")
         defer { if let handle { sqlite3_close(handle) } }
         try check(sqlite3_exec(handle,
-                               "DROP TABLE history_group_members; PRAGMA user_version = 2",
+                               "DROP TABLE history_record_times; ALTER TABLE history_entries DROP COLUMN text_revision; ALTER TABLE history_entries DROP COLUMN screenshot_origin; DROP TABLE history_group_members; ALTER TABLE history_entries DROP COLUMN is_favorite; PRAGMA user_version = 2",
                                nil, nil, nil) == SQLITE_OK,
                   "无法模拟旧版数据库")
         sqlite3_close(handle)
@@ -271,9 +585,12 @@ struct ClipboardBatchSmoke {
         print("ClipboardBatchSmoke passed")
     }
 
-    private static func capture(_ board: NSPasteboard) throws -> [ClipboardCapturedItem] {
+    private static func capture(
+        _ board: NSPasteboard, sourceAppName: String = "访达"
+    ) throws -> [ClipboardCapturedItem] {
         try ClipboardBatchCapture.capture(
-            from: board, sourceAppName: "访达", sourceAppBundleID: "com.apple.finder",
+            from: board, sourceAppName: sourceAppName,
+            sourceAppBundleID: sourceAppName == "微信" ? "com.tencent.xinWeChat" : "com.apple.finder",
             maximumImageBytes: 15 * 1_024 * 1_024,
             maximumTextBytes: 32 * 1_024 * 1_024,
             maximumRichTextBytes: 15 * 1_024 * 1_024

@@ -4,11 +4,15 @@ import Foundation
 
 // Generate template PDF assets from the pinned lucide-static icon font. The
 // generated PDFs contain paths, so the app does not need to load a font.
+// Search and calendar-days are maintained as SVGs in the asset catalog.
 let iconNames = [
-    "align-left", "arrow-up-left", "circle-check", "circle-help", "clipboard", "clipboard-clock",
-    "copy", "braces", "file", "file-code", "file-type", "history", "image", "keyboard", "link-2", "pause", "play",
-    "layout-dashboard", "scan-search", "search", "settings-2", "shield-check", "trash-2",
-    "triangle-alert", "x"
+    "align-left", "arrow-up-left", "arrow-up-right", "chevron-down", "circle",
+    "circle-check", "circle-help", "clipboard", "clipboard-clock", "copy", "copy-check",
+    "braces", "download", "ellipsis", "file", "file-code", "file-type", "grid-3x3", "history",
+    "image", "keyboard", "languages", "link-2", "mouse-pointer-2", "pause", "pencil", "pin",
+    "pin-off", "play", "layout-dashboard", "scan-search", "settings-2",
+    "shield-check", "square", "square-pen", "star", "trash-2", "triangle-alert", "type",
+    "undo-2", "x"
 ]
 
 guard CommandLine.arguments.count == 3 else {

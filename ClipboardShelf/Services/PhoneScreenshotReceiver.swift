@@ -27,6 +27,7 @@ final class PhoneScreenshotReceiver {
     private let port: UInt16
     private let onImage: (Data, @escaping (ImportResult) -> Void) -> Void
     private let onState: (String) -> Void
+    private let onSetupVisit: () -> Void
     private var listener: NWListener?
     private var connections: [UUID: PhoneScreenshotConnection] = [:]
 
@@ -35,7 +36,8 @@ final class PhoneScreenshotReceiver {
                                                withExtension: "shortcut")
             .flatMap { try? Data(contentsOf: $0) },
          onImage: @escaping (Data, @escaping (ImportResult) -> Void) -> Void,
-         onState: @escaping (String) -> Void) {
+         onState: @escaping (String) -> Void,
+         onSetupVisit: @escaping () -> Void = {}) {
         expectedUploadPath = "/v1/screenshot/\(token)"
         expectedSetupPath = "/v1/setup/\(token)"
         expectedShortcutPath = "/v1/shortcut/\(token)"
@@ -44,6 +46,7 @@ final class PhoneScreenshotReceiver {
         self.port = port
         self.onImage = onImage
         self.onState = onState
+        self.onSetupVisit = onSetupVisit
     }
 
     static func token(in defaults: UserDefaults = .standard) -> String {
@@ -51,13 +54,27 @@ final class PhoneScreenshotReceiver {
            saved.utf8.allSatisfy({ $0.isASCIIHexDigit }) {
             return saved
         }
-        var bytes = [UInt8](repeating: 0, count: 16)
-        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
-            bytes = Array(UUID().uuidString.replacingOccurrences(of: "-", with: "").utf8.prefix(16))
-        }
-        let token = bytes.map { String(format: "%02x", $0) }.joined()
+        let token = freshToken()
         defaults.set(token, forKey: tokenKey)
         return token
+    }
+
+    /// A rotated address invalidates every older setup and upload URL.
+    static func rotateToken(in defaults: UserDefaults = .standard) -> String {
+        let previous = defaults.string(forKey: tokenKey)
+        var token = freshToken()
+        while token == previous { token = freshToken() }
+        defaults.set(token, forKey: tokenKey)
+        return token
+    }
+
+    private static func freshToken() -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+            var uuid = UUID().uuid
+            bytes = withUnsafeBytes(of: &uuid) { Array($0) }
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
     static func endpoint(token: String, port: UInt16 = PhoneScreenshotReceiver.port) -> String {
@@ -99,7 +116,8 @@ final class PhoneScreenshotReceiver {
                 shortcutPath: self.expectedShortcutPath,
                 endpointAddress: self.endpointAddress,
                 shortcutData: self.shortcutData,
-                onImage: self.onImage
+                onImage: self.onImage,
+                onSetupVisit: self.onSetupVisit
             ) { [weak self] in
                 self?.connections.removeValue(forKey: id)
             }
@@ -129,6 +147,7 @@ private final class PhoneScreenshotConnection {
     private let endpointAddress: String
     private let shortcutData: Data?
     private let onImage: (Data, @escaping (PhoneScreenshotReceiver.ImportResult) -> Void) -> Void
+    private let onSetupVisit: () -> Void
     private let onFinish: () -> Void
     private let parser = PhoneScreenshotHTTPParser(maximumBodyBytes: maximumImageBytes)
     private var queue: DispatchQueue?
@@ -139,6 +158,7 @@ private final class PhoneScreenshotConnection {
     init(connection: NWConnection, uploadPath: String, setupPath: String,
          shortcutPath: String, endpointAddress: String, shortcutData: Data?,
          onImage: @escaping (Data, @escaping (PhoneScreenshotReceiver.ImportResult) -> Void) -> Void,
+         onSetupVisit: @escaping () -> Void,
          onFinish: @escaping () -> Void) {
         self.connection = connection
         self.uploadPath = uploadPath
@@ -147,6 +167,7 @@ private final class PhoneScreenshotConnection {
         self.endpointAddress = endpointAddress
         self.shortcutData = shortcutData
         self.onImage = onImage
+        self.onSetupVisit = onSetupVisit
         self.onFinish = onFinish
     }
 
@@ -198,6 +219,7 @@ private final class PhoneScreenshotConnection {
                 if let request {
                     if request.method == "GET" {
                         if Self.constantTimeEqual(request.path, self.setupPath) {
+                            self.onSetupVisit()
                             self.respondData(200, contentType: "text/html; charset=utf-8",
                                              body: Data(self.setupPage().utf8),
                                              extraHeaders: "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'\r\n")
@@ -278,7 +300,7 @@ private final class PhoneScreenshotConnection {
         <section><strong>3. 开启自动化</strong><p>不同 iOS 版本入口可能不同：轻点顶部“自动化已关闭”，或点触发条件旁的向右箭头进入设置。开启截屏自动化并选“立即运行”（旧版可关闭“运行前询问”）。这是 iPhone 上需要确认的一次性设置；仅有触发条件还不会自动上传。</p></section>
         <section><strong>4. 保存新截图验证</strong><p>保持 Mac 运行，iPhone 和 Mac 接入同一可信局域网；保存一张新截图到“照片”，检查 Mac 上是否出现“iPhone 截图”卡片并听到提示音。</p></section>
         <p><small>若顶部没有截屏触发条件，请确认添加的是本页的 iCloud 模板，不要使用之前下载的 .shortcut 文件。已添加旧副本可删除，避免重复触发。</small></p>
-        <p><small>离开这台 Mac 所在的 Wi-Fi 时，上传可能超时。可在模板的“获取 URL 内容”前按 Wi-Fi 名称添加“如果”判断，只在指定网络发送。Mac 休眠或离线时也无法接收。</small></p>
+        <p><small>iPhone 在 A、Mac 在 B 且两网不能互访时会超时；“A 或 B”条件只检查 iPhone，无法判断 Mac 当前网络。请让两台设备连接同一可互访的局域网，或暂时关闭截图自动化。Mac 休眠或离线时也无法接收。</small></p>
         </main><script>function copyAddress(){let field=document.getElementById('address');field.select();field.setSelectionRange(0,field.value.length);let ok=document.execCommand('copy');document.getElementById('copyHint').textContent=ok?'已复制地址，请在快捷指令的 URL 操作中粘贴。':'请长按地址并复制。';}</script></body></html>
         """
     }

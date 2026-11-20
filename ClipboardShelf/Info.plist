@@ -2,35 +2,39 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>zh_CN</string>
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>$(APP_DISPLAY_NAME)</string>
-    <key>CFBundleDisplayName</key>
-    <string>$(APP_DISPLAY_NAME)</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.productivity</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
-    <key>CFBundleVersion</key>
-	<string>104</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026. All rights reserved.</string>
-    <key>NSAppDataUsageDescription</key>
-    <string>保存你从微信等应用复制的图片时，ClipHoook 需要读取该应用提供的临时图片文件。</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>接收同一局域网中 iPhone 快捷指令发送的截图，并保存到 ClipHoook 历史记录。</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_CN</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(APP_DISPLAY_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(APP_DISPLAY_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>349</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSAppDataUsageDescription</key>
+	<string>保存从微信等应用复制的图片，或使用你授权的文件夹中的原文件时，ClipHoook 需要读取对应文件。</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026. All rights reserved.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>接收同一局域网中 iPhone 快捷指令发送的截图，并保存到 ClipHoook 历史记录。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>仅在你开启录屏麦克风时录入声音，与屏幕画面一起保存到本机视频文件。</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>截取或录制你选择的屏幕区域、窗口或显示器；录屏可按你的选择包含系统声音，文件保存在本机。</string>
 </dict>
 </plist>

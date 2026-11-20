@@ -1,0 +1,24 @@
+{
+  "package": "ClipHoook-2.0.0-build12-AppStore.pkg",
+  "sha256": "d29a4f5c20bc362bc2e841d6758f5416cea96d7879834a61de25ceffe7b878d9",
+  "size": 11794546,
+  "version": "2.0.0",
+  "build": "12",
+  "sourceBuild": "338",
+  "bundleID": "com.renzhenglin.shitie",
+  "minimumMacOS": "14.0",
+  "architectures": [
+    "arm64",
+    "x86_64"
+  ],
+  "archive": "dist/ClipHoook-2.0.0-build12.xcarchive",
+  "archiveSucceeded": true,
+  "exportSucceeded": true,
+  "installerSignatureVerified": true,
+  "applicationSignatureVerified": true,
+  "noCrossApplicationFocusOrSyntheticKeyboardImports": true,
+  "regressionPassed": true,
+  "desktopValidation": "pending",
+  "uploaded": false,
+  "submitted": false
+}

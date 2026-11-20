@@ -1,0 +1,9 @@
+Hello App Review Team,
+
+Thank you for the feedback on ClipHoook 2.0.0 (build 9) under Guideline 2.4.5. We are providing build 12 for review.
+
+We removed cross-app automatic paste, synthetic keyboard-event posting, and Accessibility queries for the focused UI element of another app. We also removed the related permission prompt, settings link, and UI copy. Double-clicking a clipboard card or pressing Return copies the selected item to the system clipboard and closes the panel. The user presses Command-V in the destination app to paste.
+
+To verify, leave Accessibility access off for ClipHoook, copy a line in TextEdit, open ClipHoook with Command-Shift-V, and double-click the history card. Then press Command-V in TextEdit. The Review Notes include the test steps and describe the separate screen capture and microphone permissions.
+
+Thank you.

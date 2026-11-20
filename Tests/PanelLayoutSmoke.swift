@@ -64,22 +64,29 @@ struct PanelLayoutSmoke {
             availableSize: imageAvailable, placement: .bottom,
             isFileReference: false
         )
-        try check(tinyImage == CGSize(width: 360, height: 345),
-                  "小图预览应只保留容纳操作控件的最小窗口")
+        try check(tinyImage == CGSize(width: 424, height: 345),
+                  "小图预览应容纳同排的翻译与其他操作控件")
         try check(normalImage.width > tinyImage.width &&
                   normalImage.height > tinyImage.height &&
                   normalImage.width < 1240 && normalImage.height < 780,
                   "普通图片应按原始尺寸开窗")
         try check(wideImage.width == 1240 && wideImage.height < 400 &&
-                  tallImage.height == 780 && tallImage.width == 360,
+                  tallImage.height == 780 && tallImage.width == tinyImage.width,
                   "宽图和长图应按比例使用可用空间")
         let fileImage = PanelLayout.imagePreviewPreferredSize(
             pixelSize: CGSize(width: 240, height: 160), backingScale: 2,
             availableSize: imageAvailable, placement: .bottom,
             isFileReference: true
         )
-        try check(fileImage == CGSize(width: 460, height: 365),
-                  "文件引用需要足够空间显示保存副本按钮和展开的信息")
+        try check(fileImage == CGSize(width: 544, height: 365),
+                  "图片文件引用需要足够空间单排显示翻译和副本操作")
+        let sideImage = PanelLayout.imagePreviewPreferredSize(
+            pixelSize: CGSize(width: 240, height: 160), backingScale: 2,
+            availableSize: imageAvailable, placement: .left,
+            isFileReference: true
+        )
+        try check(sideImage.width == fileImage.width + 10,
+                  "侧边预览的指向尖角不能占用单排工具栏的空间")
         let oneXImage = PanelLayout.imagePreviewPreferredSize(
             pixelSize: CGSize(width: 1200, height: 800), backingScale: 1,
             availableSize: imageAvailable, placement: .bottom,
@@ -246,6 +253,14 @@ struct PanelLayoutSmoke {
             try check(desktopScreen.contains(detail) && !detail.intersects(shelf),
                       "\(placement.title)布局中的预览不应遮挡剪贴板面板")
         }
+
+        let singlePinned = PanelLayout.pinnedLaneLength(available: 1_400, cardLength: 200, contentLength: 204)
+        let manyPinned = PanelLayout.pinnedLaneLength(available: 1_400, cardLength: 200, contentLength: 2_000)
+        let shortVertical = PanelLayout.pinnedLaneLength(available: 360, cardLength: 250, contentLength: 254)
+        try check(singlePinned == 204 && manyPinned > singlePinned && manyPinned < 700,
+                  "少量钉住卡片应贴合内容，更多卡片应保留普通历史的浏览空间")
+        try check(shortVertical > 0 && shortVertical + PanelLayout.shelfLaneGap < 240,
+                  "高度有限的竖排面板仍需留出普通历史区域")
 
         print("Panel layout smoke test passed")
     }

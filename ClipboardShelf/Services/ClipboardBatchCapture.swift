@@ -1,14 +1,50 @@
 import AppKit
 import UniformTypeIdentifiers
+import CoreServices
+
+/// Only explicit metadata is used. Image dimensions, extensions and names
+/// are deliberately not screenshot detectors.
+enum ClipboardScreenshotMetadata {
+    static let pasteboardType = NSPasteboard.PasteboardType("com.renzhenglin.cliphoook.screenshot-origin")
+    // Explicit screenshot metadata published by macOS's screenshot utility.
+    // It is pasteboard data, not a private API or a heuristic on image bytes.
+    static let systemMetadataType = NSPasteboard.PasteboardType("com.apple.screencapture.mditem")
+    static let producerType = NSPasteboard.PasteboardType("org.nspasteboard.source")
+
+    static func origin(in item: NSPasteboardItem?, fileURL: URL? = nil,
+                       sourceBundleID: String? = nil) -> ClipboardScreenshotOrigin? {
+        if let value = item?.string(forType: pasteboardType),
+           let origin = ClipboardScreenshotOrigin(rawValue: value) { return origin }
+        if item?.types.contains(systemMetadataType) == true { return .screen }
+        // A screenshot utility can publish the image while Safari, Xcode,
+        // etc. remains frontmost. Prefer an explicit clipboard producer.
+        if let producer = item?.string(forType: producerType),
+           let origin = ClipboardScreenshotOrigin.knownSource(name: nil, bundleID: producer) { return origin }
+        if let fileURL {
+            let started = fileURL.startAccessingSecurityScopedResource()
+            defer { if started { fileURL.stopAccessingSecurityScopedResource() } }
+            if let metadata = MDItemCreate(kCFAllocatorDefault, fileURL.path as CFString),
+               let isCapture = MDItemCopyAttribute(metadata, "kMDItemIsScreenCapture" as CFString) as? NSNumber,
+               isCapture.boolValue { return .screen }
+        }
+        return ClipboardScreenshotOrigin.knownSource(name: nil, bundleID: sourceBundleID)
+    }
+
+    static func write(_ entry: ClipboardEntry, to item: NSPasteboardItem) {
+        if let origin = entry.resolvedScreenshotOrigin {
+            item.setString(origin.rawValue, forType: pasteboardType)
+        }
+    }
+}
 
 enum ClipboardCapturedItem {
     case text(String)
     case richText(String, rtf: Data?, html: Data?, rtfd: Data?)
-    case image(Data, type: String)
+    case image(Data, type: String, origin: ClipboardScreenshotOrigin? = nil)
     /// The source exposed a temporary image URL but macOS did not allow us to
     /// read image bytes. This is metadata only and must never be pasted as an image.
     case unavailableImage(URL)
-    case fileReference(URL)
+    case fileReference(URL, origin: ClipboardScreenshotOrigin? = nil)
 }
 
 enum ClipboardBatchCaptureError: LocalizedError {
@@ -83,7 +119,12 @@ enum ClipboardBatchCapture {
                     guard seen.insert(normalized.path).inserted else { return nil }
                     guard isChatImage(normalized, sourceAppName: sourceAppName,
                                       sourceAppBundleID: sourceAppBundleID) else {
-                        return .fileReference(normalized)
+                        // Preserve the pasteboard URL's security scope. A
+                        // standardized URL retains the path but may lose the
+                        // access granted by the source application.
+                        return .fileReference(url, origin: ClipboardScreenshotMetadata.origin(
+                            in: items.first { fileURL(from: $0)?.standardizedFileURL == normalized },
+                            fileURL: url, sourceBundleID: sourceAppBundleID))
                     }
                     let matchingItems = items.filter {
                         fileURL(from: $0)?.standardizedFileURL == normalized
@@ -97,7 +138,8 @@ enum ClipboardBatchCapture {
                             at: normalized, allowPlaceholder: allowUnavailableImagePlaceholder
                         )
                     }
-                    return .image(image.data, type: image.type)
+                    return .image(image.data, type: image.type, origin: ClipboardScreenshotMetadata.origin(
+                        in: matchingItems.first, fileURL: normalized, sourceBundleID: sourceAppBundleID))
                 }
             }
         }
@@ -119,7 +161,8 @@ enum ClipboardBatchCapture {
                             sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID,
                             maximumBytes: maximumImageBytes
                         ) {
-                            captured.append(.image(image.data, type: image.type))
+                            captured.append(.image(image.data, type: image.type, origin: ClipboardScreenshotMetadata.origin(
+                                in: item, fileURL: normalized, sourceBundleID: sourceAppBundleID)))
                         } else {
                             captured.append(try unavailableImage(
                                 at: normalized, allowPlaceholder: allowUnavailableImagePlaceholder
@@ -135,7 +178,11 @@ enum ClipboardBatchCapture {
                             captured.append(.text(text))
                         }
                     } else {
-                        captured.append(.fileReference(normalized))
+                        let accessibleURL = fileURLs.first {
+                            $0.standardizedFileURL.path == normalized.path
+                        } ?? url
+                        captured.append(.fileReference(accessibleURL, origin: ClipboardScreenshotMetadata.origin(
+                            in: item, fileURL: accessibleURL, sourceBundleID: sourceAppBundleID)))
                     }
                 }
                 continue
@@ -152,7 +199,8 @@ enum ClipboardBatchCapture {
                 sourceAppName: sourceAppName, sourceAppBundleID: sourceAppBundleID,
                 maximumBytes: maximumImageBytes
             ) {
-                captured.append(.image(image.data, type: image.type))
+                captured.append(.image(image.data, type: image.type, origin: ClipboardScreenshotMetadata.origin(
+                    in: item, fileURL: associatedChatURL, sourceBundleID: sourceAppBundleID)))
                 if let associatedChatURL {
                     capturedFilePaths.insert(associatedChatURL.standardizedFileURL.path)
                 }

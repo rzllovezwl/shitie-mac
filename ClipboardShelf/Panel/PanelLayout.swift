@@ -1,5 +1,27 @@
 import CoreGraphics
 
+struct PanelCardDragState {
+    private(set) var isActive = false
+    private(set) var hasLeftPanel = false
+    private var panelFrame = CGRect.zero
+
+    mutating func begin(in frame: CGRect) {
+        panelFrame = frame
+        isActive = true
+        hasLeftPanel = false
+    }
+
+    /// Hide only once, after the drag actually crosses the visible shelf.
+    mutating func moved(to point: CGPoint) -> Bool {
+        guard isActive, !hasLeftPanel, !panelFrame.contains(point) else { return false }
+        hasLeftPanel = true
+        return true
+    }
+
+    func shouldHideAfterDrop(succeeded: Bool) -> Bool { succeeded && hasLeftPanel }
+    mutating func reset() { isActive = false; hasLeftPanel = false }
+}
+
 enum PanelPlacement: String, CaseIterable, Identifiable {
     case bottom, left, right, top
 
@@ -23,6 +45,29 @@ struct PreviewTail: Equatable {
 }
 
 enum PanelLayout {
+    /// The shelf rests below AppKit's drag image and above the Dock. Keeping
+    /// this level for in-panel drags avoids disturbing the native glass backdrop.
+    static let shelfWindowLevel = Int(CGWindowLevelForKey(.popUpMenuWindow))
+    /// Keep visible content above the Dock while leaving both the selector
+    /// and the pop-up-menu-level annotation window in front. Floating level
+    /// is below the Dock and exposes it before the frozen frame is captured.
+    static func screenshotBackgroundWindowLevel(for originalLevel: Int) -> Int {
+        min(originalLevel, shelfWindowLevel - 1)
+    }
+
+    static let shelfLaneGap: CGFloat = 17
+    static let shelfLaneInset: CGFloat = 2
+    static let shelfCardSpacing: CGFloat = 12
+
+    static func pinnedLaneLength(available: CGFloat, cardLength: CGFloat, contentLength: CGFloat) -> CGFloat {
+        let sharedLength = max(0, available - shelfLaneGap)
+        let oneCard = cardLength + 2 * shelfLaneInset
+        // Aim to show a full pinned card while leaving room to browse history
+        // on small displays or on a shelf attached to a vertical edge.
+        let limit = min(max(oneCard, sharedLength * 0.45), sharedLength * 0.55)
+        return min(contentLength, limit)
+    }
+
     /// Choose the text window before rendering so its opening animation has
     /// one target size. Inspect only a small prefix of very large records.
     static func textPreviewPreferredSize(for text: String?) -> CGSize {
@@ -64,8 +109,9 @@ enum PanelLayout {
             width: max(1, min(1240, availableSize.width)),
             height: max(1, min(780, availableSize.height))
         )
+        let sideTailWidth: CGFloat = placement.isVertical ? 10 : 0
         let minimum = CGSize(
-            width: min(isFileReference ? 460 : 360, maximum.width),
+            width: min((isFileReference ? 544 : 424) + sideTailWidth, maximum.width),
             // Leave room for the image controls when More Info is expanded.
             height: min(isFileReference ? 365 : 345, maximum.height)
         )
@@ -77,7 +123,7 @@ enum PanelLayout {
 
         // ClipboardDetailView reserves 145 pt below its canvas, adds 14 pt
         // padding on each side, and the bubble has a 10 pt pointing tip.
-        let horizontalChrome: CGFloat = 28 + (placement.isVertical ? 10 : 0)
+        let horizontalChrome: CGFloat = 28 + sideTailWidth
         let verticalChrome: CGFloat = 173 + (placement.isVertical ? 0 : 10)
         let scale = backingScale.isFinite ? max(1, backingScale) : 1
         let imageSize = CGSize(width: pixelSize.width / scale,

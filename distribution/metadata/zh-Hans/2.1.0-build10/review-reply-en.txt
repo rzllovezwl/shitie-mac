@@ -1,0 +1,11 @@
+Hello App Review Team,
+
+We have prepared ClipHoook 2.1.0 (build 10) for review. This update adds custom favorite categories, cards pinned at the front of the clipboard panel, local image-text search, and image export improvements. It also improves calendar readability, drag cancellation and editable annotation storage.
+
+The app requires no account. Review notes include entry points, default shortcuts and testing steps. The in-app privacy policy and product description have been updated to match this build, including local processing, Apple translation services, file access, optional local-network screenshot receiving, and user-initiated automatic paste.
+
+Double-click paste remains in this build. It writes the selected content to the system clipboard and sends Command-V only after the required keyboard-event permission and target-focus checks. It can compare Accessibility element identities without reading the focused field's text. Manual copy and paste remain available without this permission. We have described the implementation in the review notes rather than representing it as a disability-specific feature.
+
+Please let us know if you need any additional steps or information to reproduce a behavior.
+
+Thank you.

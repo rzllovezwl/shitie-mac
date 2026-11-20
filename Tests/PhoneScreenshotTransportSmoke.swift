@@ -3,24 +3,37 @@ import Foundation
 @main
 struct PhoneScreenshotTransportSmoke {
     static func main() throws {
-        let port: UInt16 = 52782
+        let port = UInt16.random(in: 40_000...60_000)
         let payload = Data([0x89, 0x50, 0x4e, 0x47])
         let shortcut = Data("signed-shortcut-fixture".utf8)
         let lock = NSLock()
         var received: Data?
+        var setupVisits = 0
+        var receiverState = "正在启动"
         let receiver = PhoneScreenshotReceiver(token: "local-test-secret", port: port,
                                                shortcutData: shortcut, onImage: { data, completion in
             lock.lock()
             received = data
             lock.unlock()
             completion(.saved)
-        }, onState: { _ in })
+        }, onState: { status in
+            lock.lock()
+            receiverState = status
+            lock.unlock()
+        }, onSetupVisit: {
+            lock.lock()
+            setupVisits += 1
+            lock.unlock()
+        })
         try receiver.start()
         defer { receiver.stop() }
 
-        // A bound listener normally becomes ready in milliseconds. URLSession
-        // handles the TCP connection and the HTTP response just as Shortcuts does.
-        Thread.sleep(forTimeInterval: 0.3)
+        waitForReady("initial") {
+            lock.lock()
+            defer { lock.unlock() }
+            return receiverState
+        }
+        // URLSession handles the TCP connection and HTTP response as Shortcuts does.
         let address = "http://127.0.0.1:\(port)/v1/screenshot/"
         // NWListener.newConnectionLimit is a lifetime budget, not a concurrent
         // connection cap. Regressions must remain visible after eight requests.
@@ -51,7 +64,59 @@ struct PhoneScreenshotTransportSmoke {
         precondition(deniedSetup == 403, "wrong setup pairing secret was accepted")
         let (deniedShortcut, _) = try get(base + "/v1/shortcut/wrong-secret")
         precondition(deniedShortcut == 403, "wrong shortcut pairing secret was accepted")
+        lock.lock()
+        let authorizedSetupVisits = setupVisits
+        lock.unlock()
+        precondition(authorizedSetupVisits == 1,
+                     "only the authorized setup page should update connection diagnostics")
+
+        let defaultsName = "PhoneScreenshotTransportSmoke.\(UUID().uuidString)"
+        guard let defaults = UserDefaults(suiteName: defaultsName) else {
+            fatalError("cannot create isolated pairing preferences")
+        }
+        defer { defaults.removePersistentDomain(forName: defaultsName) }
+        let originalToken = PhoneScreenshotReceiver.token(in: defaults)
+        let rotatedToken = PhoneScreenshotReceiver.rotateToken(in: defaults)
+        precondition(originalToken.count == 32 && rotatedToken.count == 32 &&
+                     originalToken != rotatedToken &&
+                     PhoneScreenshotReceiver.token(in: defaults) == rotatedToken,
+                     "pairing reset did not persist a fresh 128-bit token")
+
+        receiver.stop()
+        // NWListener releases its port asynchronously after cancel().
+        Thread.sleep(forTimeInterval: 0.3)
+        var rotatedState = "正在启动"
+        let rotatedReceiver = PhoneScreenshotReceiver(
+            token: rotatedToken, port: port, shortcutData: shortcut,
+            onImage: { _, completion in completion(.saved) }, onState: { status in
+                lock.lock()
+                rotatedState = status
+                lock.unlock()
+            }
+        )
+        try rotatedReceiver.start()
+        defer { rotatedReceiver.stop() }
+        waitForReady("rotated") {
+            lock.lock()
+            defer { lock.unlock() }
+            return rotatedState
+        }
+        let oldStatus = try post(payload, to: address + "local-test-secret")
+        let newStatus = try post(payload, to: address + rotatedToken)
+        precondition(oldStatus == 403 && newStatus == 200,
+                     "rotated receiver must reject the previous upload URL")
         print("Phone screenshot transport smoke test passed")
+    }
+
+    private static func waitForReady(_ label: String, _ state: () -> String) {
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            let current = state()
+            if current.hasPrefix("已就绪") { return }
+            precondition(!current.hasPrefix("接收失败"), "\(label) listener failed: \(current)")
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        preconditionFailure("\(label) listener did not become ready: \(state())")
     }
 
     private static func post(_ body: Data, to address: String) throws -> Int {

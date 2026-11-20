@@ -29,6 +29,9 @@ struct StorageSmoke {
         var now = Date(timeIntervalSince1970: 1_700_000_000)
         let clock = { now }
 
+        try checkScreenshotEditTransactions(root: root, defaults: defaults, now: clock)
+        try checkGroupedCapacityPruning(root: root)
+
         let folder = root.appendingPathComponent("fresh")
         let store = ClipboardHistoryStore(directory: folder, defaults: defaults, now: clock)
         try check(store.isNewInstallation, "新建资料库应标记为首次安装")
@@ -55,6 +58,25 @@ struct StorageSmoke {
         let imageEntry = store.entries[0]
         let imageURL = store.imageURL(for: imageEntry)!
         try check((try Data(contentsOf: imageURL)) == image, "图片内容丢失")
+        let editBase = Data("original screenshot".utf8)
+        let editDocument = Data("{\"version\":1}".utf8)
+        try store.saveScreenshotEditData(base: editBase, document: editDocument, for: imageEntry)
+        try check(store.screenshotEditData(for: imageEntry)?.base == editBase &&
+                  store.screenshotEditData(for: imageEntry)?.document == editDocument,
+                  "可编辑标注数据未随图片卡片保存")
+        let ocrSignature = store.ocrSourceSignature(for: imageEntry)!
+        try store.saveOCRText("只在本机保存的识别文字 ZX-2048", for: imageEntry,
+                              expectedSourceSignature: ocrSignature)
+        let ocrURL = folder.appendingPathComponent("OCR/\(imageEntry.id.uuidString).json")
+        try check(store.entries[0].ocrText?.contains("ZX-2048") == true &&
+                  FileManager.default.fileExists(atPath: ocrURL.path),
+                  "识别文字缓存未随图片记录保存")
+        let ocrReloaded = ClipboardHistoryStore(directory: folder, defaults: defaults, now: clock)
+        try check(ocrReloaded.entries.first(where: { $0.id == imageEntry.id })?.ocrText?.contains("ZX-2048") == true,
+                  "重新启动后应恢复已识别的图片文字")
+        try check(ocrReloaded.screenshotEditData(for: imageEntry)?.base == editBase &&
+                  ocrReloaded.screenshotEditData(for: imageEntry)?.document == editDocument,
+                  "重新启动后应恢复可编辑标注")
         try FileManager.default.removeItem(at: imageURL)
         _ = try store.addImage(image, type: "public.png", sourceAppName: "预览", sourceAppBundleID: "app.preview")
         try check(store.entries[0].id == imageEntry.id && (try Data(contentsOf: imageURL)) == image,
@@ -80,6 +102,9 @@ struct StorageSmoke {
         try store.delete(store.entries[0])
         try store.delete(imageEntry)
         try check(store.entries.count == 2 && !FileManager.default.fileExists(atPath: imageURL.path), "单条删除未移除图片")
+        try check(!FileManager.default.fileExists(atPath: ocrURL.path), "删除图片后仍留有识别文字缓存")
+        try check(store.screenshotEditData(for: imageEntry) == nil,
+                  "删除图片后应清理对应的可编辑标注")
         let codeEntry = store.entries.first { $0.id == firstID }!
         try store.delete(codeEntry)
         try check(store.entries.count == 1, "单条删除未移除文本记录")
@@ -172,10 +197,44 @@ struct StorageSmoke {
         try oldJSON.write(to: legacyFolder.appendingPathComponent("history.json"))
         let conflictingOldBuild = ClipboardHistoryStore(directory: legacyFolder, defaults: defaults, now: clock)
         try check(conflictingOldBuild.errorMessage != nil, "旧版重建 JSON 后没有检测到双写风险")
+        try check(conflictingOldBuild.entries.isEmpty,
+                  "已清空的 SQLite 历史不能被旧 JSON 中的记录重新替代")
         do {
             _ = try migratedAgain.addText("另一个进程", sourceAppName: nil)
             throw StorageTestError.failed("检测到旧版索引后仍允许继续写入")
         } catch ClipboardHistoryStoreError.legacyWriterDetected { }
+
+        let conflictFolder = root.appendingPathComponent("downgrade-conflict")
+        let originalHistory = ClipboardHistoryStore(directory: conflictFolder, defaults: defaults, now: clock)
+        _ = try originalHistory.addText(code, sourceAppName: nil)
+        _ = try originalHistory.addImage(image, type: "public.png", sourceAppName: nil)
+        let originalIDs = Set(originalHistory.entries.map(\.id))
+        let downgraded = LegacyFixture(
+            id: UUID(), createdAt: now, kind: "text", text: "old build's only record",
+            imageFileName: nil, imagePasteboardType: nil, digest: "legacy-only",
+            byteCount: 23, sourceAppName: nil)
+        let downgradedJSON = try JSONEncoder().encode([downgraded])
+        let conflictIndex = conflictFolder.appendingPathComponent("history.json")
+        try downgradedJSON.write(to: conflictIndex)
+        let conflictedHistory = ClipboardHistoryStore(directory: conflictFolder, defaults: defaults, now: clock)
+        try check(conflictedHistory.errorMessage != nil &&
+                  Set(conflictedHistory.entries.map(\.id)) == originalIDs &&
+                  conflictedHistory.entries.first(where: { $0.kind == .text })?.text == code,
+                  "降级冲突时应保留完整数据库历史供查看，不能只显示旧版的一条记录")
+        do {
+            _ = try conflictedHistory.addImage(Data([1, 2, 3]), type: "public.png", sourceAppName: nil)
+            throw StorageTestError.failed("降级冲突时仍允许截图写入")
+        } catch ClipboardHistoryStoreError.legacyWriterDetected { }
+        try check((try Data(contentsOf: conflictIndex)) == downgradedJSON,
+                  "只读显示不应删除或覆盖旧版索引")
+        try FileManager.default.moveItem(at: conflictIndex,
+            to: conflictFolder.appendingPathComponent("preserved-history.json"))
+        let recoveredHistory = ClipboardHistoryStore(directory: conflictFolder, defaults: defaults, now: clock)
+        try check(recoveredHistory.errorMessage == nil &&
+                  Set(recoveredHistory.entries.map(\.id)) == originalIDs,
+                  "归档冲突索引并重启后应恢复原历史")
+        try check(try recoveredHistory.addImage(Data([1, 2, 3]), type: "public.png", sourceAppName: nil),
+                  "解除冲突后截图写入应恢复")
 
         let brokenFolder = root.appendingPathComponent("broken")
         try FileManager.default.createDirectory(at: brokenFolder, withIntermediateDirectories: true)
@@ -208,6 +267,25 @@ struct StorageSmoke {
                   "空间超限未先删除最早记录")
         try check(limited.activeStorageBytes <= 1_024 * 1_024, "清理后实际占用仍超上限")
 
+        let fiveHundredMB: Int64 = 500 * 1_024 * 1_024
+        try check(HistoryStorageReminder.nextLevel(
+            actualBytes: fiveHundredMB - 1, maximumBytes: nil, lastNotifiedLevel: 0
+        ) == nil, "存储提醒过早出现")
+        try check(HistoryStorageReminder.nextLevel(
+            actualBytes: fiveHundredMB, maximumBytes: nil, lastNotifiedLevel: 0
+        ) == 1, "未限制时跨过 500 MB 应提醒一次")
+        try check(HistoryStorageReminder.nextLevel(
+            actualBytes: fiveHundredMB, maximumBytes: nil, lastNotifiedLevel: 1
+        ) == nil, "同一存储量不应重复提醒")
+        try check(HistoryStorageReminder.nextLevel(
+            actualBytes: 6 * 1_024 * 1_024 * 1_024,
+            maximumBytes: nil, lastNotifiedLevel: 1
+        ) == 3, "跨过更高档位应再次提醒")
+        try check(HistoryStorageReminder.nextLevel(
+            actualBytes: fiveHundredMB, maximumBytes: 1_024 * 1_024 * 1_024,
+            lastNotifiedLevel: 0
+        ) == nil, "已设置存储上限不应提醒")
+
         defaults.set(HistoryRetention.oneDay.rawValue, forKey: HistoryStoragePolicy.retentionKey)
         now.addTimeInterval(2 * 24 * 60 * 60)
         try check(try limited.applyStoragePolicy() && limited.entries.isEmpty, "按时间清理失败")
@@ -222,6 +300,110 @@ struct StorageSmoke {
         defaults.set(Data("not-json".utf8), forKey: RecordingExclusionPolicy.preferenceKey)
         try check(!RecordingExclusionPolicy.configurationIsValid(in: defaults), "损坏的排除设置未触发停止记录")
         print("Stage 0 storage smoke test passed")
+    }
+
+    @MainActor
+    private static func checkGroupedCapacityPruning(root: URL) throws {
+        let manager = FileManager.default
+        let suite = "ClipHoookCapacity-\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("forever", forKey: HistoryStoragePolicy.retentionKey)
+        defaults.set(0, forKey: HistoryStoragePolicy.maximumMegabytesKey)
+        var date = Date(timeIntervalSince1970: 1_700_000_000)
+        let folder = root.appendingPathComponent("grouped-capacity")
+        let store = ClipboardHistoryStore(directory: folder, defaults: defaults, now: { date })
+        func addImage(_ byte: UInt8) throws -> ClipboardEntry {
+            date.addTimeInterval(1)
+            _ = try store.addImage(Data(repeating: byte, count: 300_000), type: "public.png", sourceAppName: nil)
+            let entry = store.entries[0]
+            try store.saveScreenshotEditData(base: Data(repeating: byte, count: 150_000),
+                                             document: Data(repeating: byte, count: 100_000), for: entry)
+            return entry
+        }
+        let first = try addImage(0x41)
+        let second = try addImage(0x42)
+        date.addTimeInterval(1)
+        _ = try store.groupSelection(memberIDs: [first.id, second.id])
+        let latest = try addImage(0x43)
+        defaults.set(1, forKey: HistoryStoragePolicy.maximumMegabytesKey)
+        try check(try store.applyStoragePolicy(), "容量超限时应清理旧记录")
+        try check(store.entries.map(\.id) == [latest.id] && store.activeStorageBytes <= 1_024 * 1_024,
+                  "删除分组后应继续按原顺序清理释放的成员，并计入新格式标注文件")
+        try check(store.screenshotEditData(for: latest)?.base.count == 150_000 &&
+                  store.screenshotEditData(for: first) == nil && store.screenshotEditData(for: second) == nil,
+                  "容量扣减应与实际删除的标注文件一致，且保留最新图片")
+        let orphan = folder.appendingPathComponent("Content/orphan.txt")
+        try Data(repeating: 0x44, count: 600_000).write(to: orphan)
+        _ = try store.applyStoragePolicy()
+        try check(store.entries.map(\.id) == [latest.id] &&
+                  !manager.fileExists(atPath: orphan.path) && store.recoveryBytes > 0 &&
+                  store.activeStorageBytes <= 1_024 * 1_024,
+                  "应先恢复未关联文件，重新核算容量后不能多删历史")
+        let reopened = ClipboardHistoryStore(directory: folder, defaults: defaults, now: { date })
+        try check(reopened.entries.map(\.id) == [latest.id] &&
+                  reopened.screenshotEditData(for: latest)?.document.count == 100_000,
+                  "批量清理后重启应保留图片及其可编辑标注")
+    }
+
+    @MainActor
+    private static func checkScreenshotEditTransactions(root: URL, defaults: UserDefaults,
+                                                         now: @escaping () -> Date) throws {
+        let manager = FileManager.default
+        let folder = root.appendingPathComponent("editable-transactions")
+        let store = ClipboardHistoryStore(directory: folder, defaults: defaults, now: now)
+        _ = try store.addImage(Data([1, 2, 3, 4]), type: "public.png", sourceAppName: "Test")
+        let entry = store.entries[0]
+        let annotations = folder.appendingPathComponent("ScreenshotAnnotations")
+        let legacyBaseURL = folder.appendingPathComponent("ScreenshotBases/\(entry.id).image")
+        let legacyDocumentURL = annotations.appendingPathComponent("\(entry.id).json")
+        let recordURL = annotations.appendingPathComponent("\(entry.id).plist")
+        let base = Data("existing editable base".utf8)
+        let document = Data("existing editable annotations".utf8)
+        try base.write(to: legacyBaseURL)
+        try document.write(to: legacyDocumentURL)
+        try check(store.screenshotEditData(for: entry)?.base == base &&
+                  store.screenshotEditData(for: entry)?.document == document,
+                  "旧版双文件标注仍应可以打开")
+
+        func rejectWrite() throws {
+            try manager.setAttributes([.posixPermissions: 0o555], ofItemAtPath: annotations.path)
+            defer { try? manager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: annotations.path) }
+            var failed = false
+            do {
+                try store.saveScreenshotEditData(base: Data("replacement base".utf8),
+                                                 document: Data("replacement annotations".utf8), for: entry)
+            } catch { failed = true }
+            try check(failed, "只读目录应拒绝标注保存")
+            try check(store.screenshotEditData(for: entry)?.base == base &&
+                      store.screenshotEditData(for: entry)?.document == document,
+                      "保存失败不能删除底图、混用新旧标注或损坏已有版本")
+        }
+        try rejectWrite()
+        try check((try Data(contentsOf: legacyBaseURL)) == base &&
+                  (try Data(contentsOf: legacyDocumentURL)) == document,
+                  "新格式保存失败必须完整保留旧格式标注")
+
+        try store.saveScreenshotEditData(base: base, document: document, for: entry)
+        try check(manager.fileExists(atPath: recordURL.path) &&
+                  !manager.fileExists(atPath: legacyBaseURL.path) &&
+                  !manager.fileExists(atPath: legacyDocumentURL.path),
+                  "完整保存后应移除旧的双文件，避免重复占用空间")
+        try rejectWrite()
+        let reopened = ClipboardHistoryStore(directory: folder, defaults: defaults, now: now)
+        try check(reopened.screenshotEditData(for: entry)?.base == base &&
+                  reopened.screenshotEditData(for: entry)?.document == document,
+                  "失败后重启仍应读取上一份完整标注")
+        let newBase = Data("new base".utf8)
+        let newDocument = Data("new annotations".utf8)
+        try reopened.saveScreenshotEditData(base: newBase, document: newDocument, for: entry)
+        let replaced = ClipboardHistoryStore(directory: folder, defaults: defaults, now: now)
+        try check(replaced.screenshotEditData(for: entry)?.base == newBase &&
+                  replaced.screenshotEditData(for: entry)?.document == newDocument,
+                  "成功覆盖后重启应读取匹配的新底图和标注")
+        try replaced.delete(entry)
+        try check(!manager.fileExists(atPath: recordURL.path), "删除图片应一并删除新格式标注文件")
+        print("Screenshot edit transaction smoke passed: legacy reads, failed initial save, failed replacement, restart, replacement and deletion")
     }
 
     private static func check(_ condition: Bool, _ message: String) throws {

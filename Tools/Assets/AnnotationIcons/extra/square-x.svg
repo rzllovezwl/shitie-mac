@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" color="#41464D" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="划除">
+  <title>划除</title>
+  <rect x="3.25" y="4.25" width="17.5" height="15.5" rx="2.9"/>
+  <path d="M6.4 7.35 17.6 16.65M17.6 7.35 6.4 16.65"/>
+</svg>

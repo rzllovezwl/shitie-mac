@@ -1,6 +1,11 @@
 import Foundation
 
 struct ReleaseRecord: Decodable, Identifiable {
+    struct ChangeRow: Identifiable {
+        let id: String
+        let text: String
+    }
+
     let version: String
     let build: String
     let date: String
@@ -8,6 +13,12 @@ struct ReleaseRecord: Decodable, Identifiable {
     let changes: [String]
 
     var id: String { "\(version)-\(build)" }
+
+    var changeRows: [ChangeRow] {
+        changes.enumerated().map { index, text in
+            ChangeRow(id: "\(id)-\(index)", text: text)
+        }
+    }
 }
 
 struct ReleaseHistory: Decodable {
