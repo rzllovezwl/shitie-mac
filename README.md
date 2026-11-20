@@ -7,18 +7,28 @@
 <p align="center">一款原生 macOS 效率工具，把剪贴板历史、全局搜索、暂存箱、截图标注和录屏放在手边。</p>
 <p align="center">macOS 14+ · SwiftUI / AppKit · 本机保存 · 开发版 1.0.0（349）</p>
 <p align="center">
-  <a href="#功能一览">功能一览</a> · <a href="#常用快捷键">快捷键</a> · <a href="#构建与验证">构建与验证</a> · <a href="#文档导航">详细文档</a>
+  <a href="#下载与安装">下载</a> · <a href="#iphone-截图自动到-mac">iPhone 传图</a> · <a href="#功能一览">功能一览</a> · <a href="#常用快捷键">快捷键</a> · <a href="#构建与验证">构建与验证</a> · <a href="#文档导航">详细文档</a>
 </p>
 
 ![ClipHoook 剪贴板面板与产品介绍](docs/images/overview.jpg)
 
 > 当前功能代码位于 [develop](https://github.com/rzllovezwl/shitie-mac/tree/develop)。配图使用当前开发版界面与虚构演示内容生成。这里介绍 349 构建，已导出的商店候选使用各自独立的源码快照与功能说明。
 
+## 下载与安装
+
+| 下载方式 | 适合谁 | 入口 |
+| --- | --- | --- |
+| App Store 正式版 · 1.1.0 | 希望通过商店安装和更新 | [在 Mac App Store 中获取](https://apps.apple.com/cn/app/id6823468334) |
+| GitHub 下载版 | 想体验当前开发功能 | [查看 Releases](https://github.com/rzllovezwl/shitie-mac/releases) |
+
+GitHub 下载版正在准备站外分发签名与公证，当前发布页尚无安装附件。完成后会提供 Apple 芯片与 Intel 通用安装包。App Store 与 GitHub 版本的功能和版本号可能不同，请查看各自的更新记录。[下载与分发说明](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/Downloads.md)
+
 ## 功能一览
 
 | 你正在做什么 | ClipHoook 可以接着做 |
 | --- | --- |
 | 复制文字、链接、图片或文件 | 自动保留历史，记录来源、日期与次数，随时预览和再次使用 |
+| 在 iPhone 上看到想留存的内容 | 保存截图后通过快捷指令传到 Mac，在 ClipHoook 中预览、识别、标注和使用 |
 | 找回之前复制的内容 | ⌘⇧空格全局搜索，按关键词、文件名、来源或图片中的文字查找 |
 | 在多个应用之间搬运内容 | 拖入屏幕侧边的暂存箱，再拖到目标应用，成功投放后移除暂存项 |
 | 截取并说明一块画面 | 区域、窗口、整屏、长截图，接着裁剪、标注、识别文字或翻译 |
@@ -37,6 +47,22 @@
 文件默认保存位置引用和访问书签，用户可在详情中明确“保存副本”。原文件移动、删除或权限失效时会提示重新关联。微信多项复制中无法读取的图片会保留缺图占位和顺序，避免把不完整分组当成完整内容投放。文件与富文本细节见 [数据说明](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/Stage2.md)。
 
 “图片”包含所有图片，“屏幕截屏”“ClipHoook截图”和“iPhone 截图”可分别筛选，来源不明确的旧图片可手动更正。日历可按月、年和今天定位，数字对应当前筛选下的记录，同一内容的多个复制日期共用内容文件。旧记录仅能回填首次和最近日期，已清理内容无法通过日历恢复。
+
+### iPhone 截图，自动到 Mac
+
+![iPhone 截图经局域网自动进入 ClipHoook 历史](docs/images/iphone-transfer.jpg)
+
+手机上看到一段资料、一张灵感图或一段聊天内容，截屏保存到照片，就能通过快捷指令送进 Mac 的 ClipHoook 历史。接着按空格预览、识别文字、翻译、标注、钉在桌面，或拖进正在使用的应用。
+
+先在 Mac 开启接收，用 iPhone 扫码添加模板、填入自己的接收地址并开启“立即运行”。之后在同一可信局域网内，Mac 保持运行和接收开启，新截图便可自动送达。整个过程无需安装 iPhone App，也无需等待 iCloud 照片同步。
+
+| ① 设置一次 | ② 手机保存截图 | ③ Mac 接着用 |
+| --- | --- | --- |
+| 开启接收，添加模板，启用自动化 | 在同一可信局域网中自动发送 | 预览、OCR、翻译、标注、拖放 |
+
+[查看图文设置指南](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/iPhoneScreenshots.md) · [添加 iCloud 快捷指令模板](https://www.icloud.com/shortcuts/92f7bdc3a5554d1e9d560e0ed03a8879)
+
+手机与 Mac 需能在局域网中互相访问，Mac 休眠或离网时不会送达，当前没有离线补传。传输使用带随机配对码的本地 HTTP 地址，请在可信网络中使用，并保留自己的接收地址。
 
 ### 搜索与暂存，少一次来回切换
 
@@ -69,8 +95,6 @@
 “通用 → 声音”提供双咔嗒（默认）、轻扣、木叩、气泡、金属轻敲、金属双击、金属弹片、纸张翻页、纸张轻揉和原提示音。选择后立即播放，也可单击“试听”重播，日常提示音可独立关闭。349 的播放音量为 85%，实际响度随系统输出音量变化。音效随应用本地打包。[音效资源与设置](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/CopySounds.md)
 
 桌面贴图支持拖动、缩放滑杆、1∶1 和透明度滑杆，半透明工具条显示在图片上方，空间不足时调整位置。菜单栏、设置、Dock 与访达使用统一的 B 方案叠卡标识。[图标与品牌资源](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/Branding/B-325/README.md)
-
-iPhone 截图可由用户手动开启局域网接收，用快捷指令把选中的图片发送到 Mac，并进入历史。配对地址含随机码，发送设备需处于同一可信网络。[配置指南](https://github.com/rzllovezwl/shitie-mac/blob/develop/docs/iPhoneScreenshots.md)
 
 ## 常用快捷键
 
