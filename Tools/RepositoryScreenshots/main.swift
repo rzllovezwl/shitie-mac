@@ -22,6 +22,10 @@ struct RepositoryArtwork {
         UserDefaults.standard.set(true, forKey: PhoneScreenshotDiscovery.cardDismissedKey)
         UserDefaults.standard.set(false, forKey: CopySoundPreference.enabledKey)
         UserDefaults.standard.set("compact", forKey: "panelHeight")
+        if CommandLine.arguments.contains("--iphone-only") {
+            try makePhoneImages(demo: demo, output: output)
+            return
+        }
         let store = ClipboardHistoryStore(directory: demo.appendingPathComponent("history"))
         let postcard = try makePostcard()
         _ = try store.addText("https://example.com/cliphoook/design-notes", sourceAppName: "Safari")
@@ -104,7 +108,113 @@ struct RepositoryArtwork {
             label("箭头＋矩形  /  划除  /  复制标注元素  /  每个工具独立默认样式", x: 155, y: 72, size: 22, color: muted)
             footer(width: 1680)
         }
-        print("Created 3 repository images from build 349 views and isolated demo data")
+        try makePhoneImages(demo: demo, output: output)
+        print("Created repository images from build 349 views and isolated demo data")
+    }
+
+    static func makePhoneImages(demo: URL, output: URL) throws {
+        let picture = try makePhoneScreenshot()
+        let store = ClipboardHistoryStore(directory: demo.appendingPathComponent("phone-history"))
+        _ = try store.addImage(picture, type: NSPasteboard.PasteboardType.png.rawValue,
+                               sourceAppName: "iPhone 截图", screenshotOrigin: .phone)
+        guard let entry = store.entries.first, let imageURL = store.imageURL(for: entry),
+              let phoneScreen = NSImage(data: picture) else { throw failure("无法创建 iPhone 演示图片") }
+        let card = ClipboardCardView(entry: entry, imageURL: imageURL, thumbnailURL: nil,
+            fileHasSavedCopy: false, richTextFiles: .init(rtf: nil, html: nil, rtfd: nil), formattedPreviewEnabled: true,
+            cardSize: CGSize(width: 280, height: 360), isSelected: true, groupMembership: nil,
+            onSelect: { _ in }, onPaste: {}, onCopy: {}, onDelete: {},
+            canRecognizeImage: true, recognizeShortcut: "⌘W", onRecognizeImage: {},
+            onOpenSource: {}, onBeginDrag: { nil }, onDragStarted: {}, onEndDrag: { _ in })
+        let cardImage = try render(card.preferredColorScheme(.light).padding(2),
+                                   size: CGSize(width: 284, height: 364))
+        try save(size: CGSize(width: 1680, height: 1180), to: output.appendingPathComponent("iphone-transfer.jpg")) {
+            label("iPhone 截图，自动到 Mac。", x: 72, y: 1055, size: 61, weight: .bold)
+            label("手机里看到的灵感，接到 Mac 上继续用。", x: 76, y: 998, size: 25, color: muted)
+            label("iPhone", x: 235, y: 940, size: 23, weight: .semibold)
+            let device = CGRect(x: 145, y: 310, width: 300, height: 600)
+            NSColor(calibratedWhite: 0.13, alpha: 1).setFill()
+            NSBezierPath(roundedRect: device, xRadius: 48, yRadius: 48).fill()
+            NSGraphicsContext.saveGraphicsState()
+            let display = device.insetBy(dx: 11, dy: 11)
+            NSBezierPath(roundedRect: display, xRadius: 39, yRadius: 39).addClip()
+            phoneScreen.draw(in: display)
+            NSGraphicsContext.restoreGraphicsState()
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: CGRect(x: 249, y: 874, width: 92, height: 17), xRadius: 9, yRadius: 9).fill()
+            label("保存一张新截图", x: 198, y: 264, size: 23, color: muted)
+
+            blue.withAlphaComponent(0.10).setFill()
+            NSBezierPath(ovalIn: CGRect(x: 699, y: 651, width: 100, height: 100)).fill()
+            if let wifi = NSImage(systemSymbolName: "wifi", accessibilityDescription: nil) {
+                let symbol = wifi.withSymbolConfiguration(.init(pointSize: 40, weight: .medium)) ?? wifi
+                symbol.draw(in: CGRect(x: 722, y: 682, width: 55, height: 39))
+            }
+            let arrow = NSBezierPath()
+            arrow.move(to: CGPoint(x: 510, y: 608)); arrow.line(to: CGPoint(x: 992, y: 608))
+            arrow.move(to: CGPoint(x: 975, y: 625)); arrow.line(to: CGPoint(x: 992, y: 608))
+            arrow.line(to: CGPoint(x: 975, y: 591))
+            arrow.lineWidth = 3; arrow.lineCapStyle = .round; arrow.lineJoinStyle = .round
+            blue.setStroke(); arrow.stroke()
+            label("快捷指令自动发送", x: 624, y: 546, size: 26, weight: .semibold)
+            label("同一可信局域网 · 无需 iPhone App", x: 536, y: 500, size: 21, color: muted)
+
+            label("ClipHoook 历史", x: 1137, y: 940, size: 23, weight: .semibold)
+            artwork(cardImage, in: CGRect(x: 1100, y: 384, width: 365, height: 468))
+            label("预览 · 识别文字 · 标注 · 拖到其他应用", x: 1060, y: 320, size: 21, color: muted)
+            pill("①  保存截图", x: 180, y: 143, width: 280)
+            pill("②  自动传到 Mac", x: 560, y: 143, width: 330)
+            pill("③  接着处理与使用", x: 990, y: 143, width: 350)
+            label("先完成一次设置。无需等待照片云同步，截图直接进入剪贴板历史。", x: 180, y: 86, size: 22, color: muted)
+            footer(width: 1680)
+        }
+
+        let model = AppController.shared
+        model.configureRepositoryPhoneFixture()
+        let guide = try render(repositoryPhoneGuide(model: model), size: CGSize(width: 660, height: 1040))
+        try save(size: CGSize(width: 1680, height: 1400), to: output.appendingPathComponent("iphone-setup.jpg")) {
+            label("设置一次，之后截屏就直达。", x: 72, y: 1275, size: 59, weight: .bold)
+            label("Mac 开启接收，iPhone 添加快捷指令并启用自动化。", x: 76, y: 1220, size: 25, color: muted)
+            artwork(guide, in: CGRect(x: 75, y: 142, width: 650, height: 1024))
+            step(1, "Mac 开启接收", "设置 → iPhone 传图\n开启“接收 iPhone 截图”。", x: 815, y: 1005)
+            step(2, "iPhone 扫码添加模板", "打开 Mac 的功能指南，\n用 iPhone 扫码添加 iCloud 模板。", x: 815, y: 785)
+            step(3, "填入你自己的接收地址", "从 Mac 复制完整地址，\n替换模板 URL 中的占位文字。", x: 815, y: 565)
+            step(4, "启用“立即运行”", "保存一张新截图到照片，\n它就会出现在 Mac 的历史中。", x: 815, y: 345)
+            label("示意界面使用演示地址；实际设置请复制自己 Mac 中的地址。", x: 78, y: 78, size: 21, color: muted)
+            footer(width: 1680)
+        }
+        print("Created iPhone transfer / setup images; no receiver or network transfer started")
+    }
+
+    static func step(_ number: Int, _ title: String, _ description: String, x: CGFloat, y: CGFloat) {
+        blue.withAlphaComponent(0.10).setFill()
+        NSBezierPath(ovalIn: CGRect(x: x, y: y + 45, width: 52, height: 52)).fill()
+        label(String(number), x: x + 17, y: y + 55, size: 28, color: blue, weight: .semibold)
+        label(title, x: x + 75, y: y + 56, size: 29, weight: .semibold)
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineSpacing = 10
+        (description as NSString).draw(in: CGRect(x: x + 75, y: y - 54, width: 650, height: 98),
+            withAttributes: [.font: NSFont.systemFont(ofSize: 23), .foregroundColor: muted, .paragraphStyle: paragraph])
+    }
+
+    static func makePhoneScreenshot() throws -> Data {
+        let bitmap = try canvas(size: CGSize(width: 760, height: 1580)) {
+            NSColor.white.setFill()
+            NSBezierPath(rect: CGRect(x: 0, y: 0, width: 760, height: 1580)).fill()
+            label("9:41", x: 65, y: 1460, size: 32, weight: .semibold)
+            label("灵感笔记", x: 65, y: 1295, size: 62, weight: .bold)
+            label("把喜欢的片刻，留到之后。", x: 68, y: 1218, size: 29, color: muted)
+            NSColor(calibratedRed: 0.91, green: 0.95, blue: 1, alpha: 1).setFill()
+            NSBezierPath(roundedRect: CGRect(x: 50, y: 630, width: 660, height: 515), xRadius: 36, yRadius: 36).fill()
+            label("WEEKEND NOTES", x: 95, y: 1050, size: 22, color: blue, weight: .semibold)
+            label("周末的小计划", x: 95, y: 955, size: 48, weight: .bold)
+            label("01  整理灵感与参考", x: 95, y: 850, size: 31)
+            label("02  做一张喜欢的海报", x: 95, y: 770, size: 31)
+            label("03  去看看新的风景", x: 95, y: 690, size: 31)
+            label("这张截图，接到 Mac 上继续用。", x: 70, y: 480, size: 29, color: muted)
+            label("CLIPHOOOK / DEMO", x: 70, y: 365, size: 22, color: blue)
+        }
+        guard let data = bitmap.representation(using: .png, properties: [:]) else { throw failure("无法生成手机截图示例") }
+        return data
     }
 
     static func settle() { RunLoop.main.run(until: Date().addingTimeInterval(0.55)) }

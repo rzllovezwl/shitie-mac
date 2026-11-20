@@ -25,7 +25,25 @@ new = '''static let shared = AppController(store: ClipboardHistoryStore(director
     URL(fileURLWithPath: ProcessInfo.processInfo.environment["CLIPHOOOK_ARTWORK_DIR"]!)
         .appendingPathComponent("history")))'''
 assert controller.count(old) == 1
-(scratch / "AppController.swift").write_text(controller.replace(old, new, 1))
+controller = controller.replace(old, new, 1)
+controller += '''
+extension AppController {
+    func configureRepositoryPhoneFixture() {
+        phoneScreenshotReceivingEnabled = true
+        phoneScreenshotReceiverStatus = "已就绪，等待 iPhone 截图"
+        phoneScreenshotEndpoint = "http://demo-mac.local:52781/v1/screenshot/00000000000000000000000000000000"
+        phoneScreenshotSetupAddress = "http://demo-mac.local:52781/v1/setup/00000000000000000000000000000000"
+    }
+}
+'''
+(scratch / "AppController.swift").write_text(controller)
+settings = (root / "ClipboardShelf/Settings/SettingsWindowController.swift").read_text()
+settings += '''
+@MainActor func repositoryPhoneGuide(model: AppController) -> AnyView {
+    AnyView(PhoneScreenshotGuideView(model: model, close: {}).preferredColorScheme(.light))
+}
+'''
+(scratch / "SettingsWindowController.swift").write_text(settings)
 # The appended fixture lives in the same temporary file as the private renderer.
 # All shapes still use the app's real annotation geometry and drawing code.
 annotation = (root / "ClipboardShelf/Services/MacScreenshotAnnotations.swift").read_text()
@@ -53,17 +71,18 @@ PY
 sources=()
 for file in "$project_root"/ClipboardShelf/**/*.swift(.N); do
     case "$file" in
-        */App/ClipboardShelfApp.swift|*/App/AppController.swift|*/Services/MacScreenshotAnnotations.swift) ;;
+        */App/ClipboardShelfApp.swift|*/App/AppController.swift|*/Services/MacScreenshotAnnotations.swift|*/Settings/SettingsWindowController.swift) ;;
         *) sources+=("$file") ;;
     esac
 done
 swiftc -parse-as-library -D DEBUG -target "$(uname -m)-apple-macos14.0" \
     -module-cache-path "$scratch/ModuleCache" "${sources[@]}" \
     "$scratch/ClipboardShelfApp.swift" "$scratch/AppController.swift" \
-    "$scratch/MacScreenshotAnnotations.swift" "$project_root/Tools/RepositoryScreenshots/main.swift" \
+    "$scratch/MacScreenshotAnnotations.swift" "$scratch/SettingsWindowController.swift" \
+    "$project_root/Tools/RepositoryScreenshots/main.swift" \
     -lsqlite3 -Xlinker -weak_framework -Xlinker Translation \
     -Xlinker -weak_framework -Xlinker _Translation_SwiftUI \
     -o "$bundle/Contents/MacOS/RepositoryArtwork"
 cp "$source_app/Contents/Resources/Assets.car" "$bundle/Contents/Resources/"
 cp "$project_root/ClipboardShelf/Resources/ReleaseHistory.json" "$bundle/Contents/Resources/"
-CLIPHOOOK_ARTWORK_DIR="$scratch/demo" "$bundle/Contents/MacOS/RepositoryArtwork" "$project_root"
+CLIPHOOOK_ARTWORK_DIR="$scratch/demo" "$bundle/Contents/MacOS/RepositoryArtwork" "$project_root" "$@"
